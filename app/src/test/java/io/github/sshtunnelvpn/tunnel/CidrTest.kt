@@ -29,7 +29,8 @@ class CidrTest {
         assertEquals(size(all) - excluded, covered)
         out.zipWithNext().forEach { (a, b) -> assertTrue(a.end < b.start) }
         for (ex in Routes.LAN_V4) for (r in out) assertTrue(r.end < ex.start || r.start > ex.end)
-        assertTrue(out.size < 40)
+        // 最小 CIDR 集合大小(以 Python ipaddress.collapse_addresses 交叉驗證)
+        assertEquals(77, out.size)
     }
 
     @Test
