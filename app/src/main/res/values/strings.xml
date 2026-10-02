@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SSH Tunnel VPN</string>
+    <string name="app_name_short">SSH VPN</string>
+    <string name="channel_tunnel">VPN status</string>
+
+    <string name="action_add_profile">Add server</string>
+    <string name="action_back">Back</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_disconnect">Disconnect</string>
+    <string name="action_duplicate">Duplicate</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_generate_key">Generate</string>
+    <string name="action_import_key">Import file</string>
+    <string name="action_more">More options</string>
+    <string name="action_ok">OK</string>
+    <string name="action_save">Save</string>
+    <string name="action_share">Share</string>
+    <string name="action_test_connection">Test connection</string>
+    <string name="action_toggle">Connect or disconnect</string>
+
+    <string name="state_idle">Not connected</string>
+    <string name="state_connecting">Connecting…</string>
+    <string name="state_connected">Connected</string>
+    <string name="state_reconnecting">Reconnecting…</string>
+    <string name="state_stopping">Disconnecting…</string>
+    <string name="state_error">Connection failed</string>
+
+    <string name="error_no_profile">No server selected</string>
+    <string name="error_vpn_permission">VPN permission was not granted</string>
+
+    <string name="home_no_profile">No server yet</string>
+    <string name="home_no_profile_hint">Tap to add your first SSH server</string>
+
+    <string name="stat_download">Download</string>
+    <string name="stat_upload">Upload</string>
+    <string name="stat_total">Total %1$s</string>
+    <string name="stat_latency">Latency</string>
+    <string name="stat_connections">TCP active / total</string>
+    <string name="stat_ssh_links">SSH links</string>
+    <string name="stat_dns">DNS queries · cached</string>
+    <string name="stat_udp">UDP sessions</string>
+    <string name="stat_server">Server</string>
+
+    <string name="hostkey_changed_title">Host key changed</string>
+    <string name="hostkey_changed_body">The host key of %1$s differs from the one you trusted before. This may mean someone is intercepting the connection, or the server was reinstalled.</string>
+    <string name="hostkey_known">Previously trusted</string>
+    <string name="hostkey_new">Presented now (%1$s)</string>
+    <string name="hostkey_trust">Trust new key</string>
+
+    <string name="title_profiles">Servers</string>
+    <string name="title_new_profile">New server</string>
+    <string name="title_edit_profile">Edit server</string>
+    <string name="title_settings">Settings</string>
+    <string name="title_logs">Logs</string>
+    <string name="title_known_hosts">Known hosts</string>
+    <string name="title_apps_proxy">Apps using VPN</string>
+    <string name="title_apps_bypass">Apps bypassing VPN</string>
+
+    <string name="profiles_empty">No servers yet.\nAdd an SSH server to get started — any standard OpenSSH server works, no server-side setup required.</string>
+    <string name="profile_delete_title">Delete server?</string>
+    <string name="profile_delete_body">“%1$s” will be removed permanently.</string>
+
+    <string name="field_name">Name</string>
+    <string name="field_name_hint">Optional</string>
+    <string name="field_host">Host</string>
+    <string name="field_port">Port</string>
+    <string name="field_username">Username</string>
+    <string name="field_password">Password</string>
+    <string name="field_private_key">Private key</string>
+    <string name="field_passphrase">Key passphrase</string>
+    <string name="field_connections">Parallel SSH connections</string>
+    <string name="field_connections_hint">Spreads traffic over multiple SSH connections to avoid head-of-line blocking and single-thread crypto limits on the server.</string>
+    <string name="field_keepalive">Keepalive interval</string>
+    <string name="field_keepalive_hint">Dead connections are detected and re-established after this interval.</string>
+    <string name="field_udpgw">UDP via udpgw</string>
+    <string name="field_udpgw_hint">Requires badvpn-udpgw running on the server. Without it, only DNS is forwarded over UDP.</string>
+    <string name="field_udpgw_address">udpgw address (as seen from server)</string>
+
+    <string name="section_auth">Authentication</string>
+    <string name="section_advanced">Advanced</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_key">Key</string>
+    <string name="auth_key_password">Key + password</string>
+    <string name="label_public_key">Public key (add to ~/.ssh/authorized_keys)</string>
+    <string name="keygen_title">Key generated</string>
+    <string name="keygen_body">Add this public key to ~/.ssh/authorized_keys on the server, then save the profile.</string>
+
+    <string name="test_ok">Connection successful</string>
+    <string name="test_timing">Handshake %1$d ms · RTT %2$d ms</string>
+    <string name="test_udpgw_ok">udpgw reachable</string>
+    <string name="test_udpgw_fail">udpgw unreachable: %1$s</string>
+
+    <string name="settings_apply_on_reconnect">Changes take effect on the next connection.</string>
+    <string name="section_dns">DNS</string>
+    <string name="section_routing">Routing</string>
+    <string name="section_apps">Per-app proxy</string>
+    <string name="section_proxy">Local proxy</string>
+    <string name="section_security">Security</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="section_about">About</string>
+
+    <string name="pref_dns_upstream">DNS server</string>
+    <string name="pref_dns_upstream_hint">Resolved from the SSH server side via DNS-over-TCP. IP or host[:port].</string>
+    <string name="pref_dns_cache">DNS cache</string>
+    <string name="pref_dns_cache_summary">Cache answers locally (TTL-aware) to save round trips</string>
+    <string name="pref_custom">Custom…</string>
+    <string name="pref_ipv6">Route IPv6</string>
+    <string name="pref_ipv6_summary">Capture IPv6 traffic too, preventing leaks outside the tunnel</string>
+    <string name="pref_bypass_lan">Bypass LAN</string>
+    <string name="pref_bypass_lan_summary">Private and link-local addresses go directly</string>
+    <string name="pref_excluded_routes">Excluded subnets</string>
+    <string name="pref_excluded_routes_hint">CIDR list, one per line, e.g. 203.0.113.0/24</string>
+    <string name="pref_none">None</string>
+    <string name="pref_mtu">MTU</string>
+    <string name="pref_mtu_hint">Larger MTU means fewer packets through the user-space stack. Default 8500.</string>
+    <string name="pref_app_mode">Mode</string>
+    <string name="pref_select_apps">Select apps</string>
+    <string name="pref_select_apps_summary">%1$d selected</string>
+    <string name="pref_socks">SOCKS5 proxy</string>
+    <string name="pref_socks_summary">Expose the tunnel as a SOCKS5 proxy while connected</string>
+    <string name="pref_socks_port">SOCKS5 port</string>
+    <string name="pref_socks_lan">Allow LAN access</string>
+    <string name="pref_socks_lan_summary">Let other devices (e.g. via hotspot) use the proxy. No authentication!</string>
+    <string name="pref_known_hosts_summary">Host keys trusted on first use</string>
+    <string name="pref_always_on">Always-on VPN</string>
+    <string name="pref_always_on_summary">Open system VPN settings to enable always-on and block connections without VPN</string>
+    <string name="pref_theme">Theme</string>
+    <string name="pref_dynamic_color">Dynamic color</string>
+    <string name="pref_dynamic_color_summary">Use colors from your wallpaper</string>
+    <string name="pref_log_level">Log level</string>
+    <string name="pref_version">Version</string>
+    <string name="pref_inspired">Inspired by</string>
+
+    <string name="app_mode_all">All apps</string>
+    <string name="app_mode_allow">Only selected apps</string>
+    <string name="app_mode_disallow">All apps except selected</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="log_debug">Debug</string>
+    <string name="log_info">Info</string>
+    <string name="log_warn">Warning</string>
+    <string name="log_error">Error</string>
+
+    <string name="apps_search">Search apps</string>
+    <string name="apps_show_system">Show system apps</string>
+    <string name="apps_hide_system">Hide system apps</string>
+    <string name="apps_select_visible">Select all shown</string>
+    <string name="apps_clear">Clear selection</string>
+
+    <string name="logs_empty">No logs yet</string>
+    <string name="logs_filter">Filter</string>
+
+    <string name="known_hosts_empty">No trusted hosts yet.\nHost keys are remembered on the first connection.</string>
+    <string name="known_hosts_forget_title">Forget host key?</string>
+    <string name="known_hosts_forget_body">The next connection to %1$s will trust whatever key it presents.</string>
+</resources>

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SSH Tunnel VPN</string>
+    <string name="app_name_short">SSH VPN</string>
+    <string name="channel_tunnel">VPN 狀態</string>
+
+    <string name="action_add_profile">新增伺服器</string>
+    <string name="action_back">返回</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_clear">清除</string>
+    <string name="action_copy">複製</string>
+    <string name="action_delete">刪除</string>
+    <string name="action_disconnect">中斷連線</string>
+    <string name="action_duplicate">複製一份</string>
+    <string name="action_edit">編輯</string>
+    <string name="action_generate_key">產生金鑰</string>
+    <string name="action_import_key">從檔案匯入</string>
+    <string name="action_more">更多選項</string>
+    <string name="action_ok">確定</string>
+    <string name="action_save">儲存</string>
+    <string name="action_share">分享</string>
+    <string name="action_test_connection">測試連線</string>
+    <string name="action_toggle">連線或中斷</string>
+
+    <string name="state_idle">未連線</string>
+    <string name="state_connecting">連線中…</string>
+    <string name="state_connected">已連線</string>
+    <string name="state_reconnecting">重新連線中…</string>
+    <string name="state_stopping">中斷中…</string>
+    <string name="state_error">連線失敗</string>
+
+    <string name="error_no_profile">尚未選擇伺服器</string>
+    <string name="error_vpn_permission">未取得 VPN 權限</string>
+
+    <string name="home_no_profile">尚無伺服器</string>
+    <string name="home_no_profile_hint">點此新增第一台 SSH 伺服器</string>
+
+    <string name="stat_download">下載</string>
+    <string name="stat_upload">上傳</string>
+    <string name="stat_total">累計 %1$s</string>
+    <string name="stat_latency">延遲</string>
+    <string name="stat_connections">TCP 使用中 / 累計</string>
+    <string name="stat_ssh_links">SSH 連線</string>
+    <string name="stat_dns">DNS 查詢 · 快取命中</string>
+    <string name="stat_udp">UDP 工作階段</string>
+    <string name="stat_server">伺服器</string>
+
+    <string name="hostkey_changed_title">主機金鑰已變更</string>
+    <string name="hostkey_changed_body">%1$s 出示的主機金鑰與先前信任的不同。可能有人攔截連線,或伺服器已重灌。</string>
+    <string name="hostkey_known">先前信任</string>
+    <string name="hostkey_new">本次出示(%1$s)</string>
+    <string name="hostkey_trust">信任新金鑰</string>
+
+    <string name="title_profiles">伺服器</string>
+    <string name="title_new_profile">新增伺服器</string>
+    <string name="title_edit_profile">編輯伺服器</string>
+    <string name="title_settings">設定</string>
+    <string name="title_logs">日誌</string>
+    <string name="title_known_hosts">已知主機</string>
+    <string name="title_apps_proxy">走 VPN 的 App</string>
+    <string name="title_apps_bypass">不走 VPN 的 App</string>
+
+    <string name="profiles_empty">尚無伺服器。\n新增一台 SSH 伺服器即可開始——任何標準 OpenSSH 伺服器都行,伺服器端不需額外設定。</string>
+    <string name="profile_delete_title">刪除伺服器?</string>
+    <string name="profile_delete_body">「%1$s」將被永久移除。</string>
+
+    <string name="field_name">名稱</string>
+    <string name="field_name_hint">選填</string>
+    <string name="field_host">主機</string>
+    <string name="field_port">連接埠</string>
+    <string name="field_username">使用者名稱</string>
+    <string name="field_password">密碼</string>
+    <string name="field_private_key">私鑰</string>
+    <string name="field_passphrase">私鑰密語</string>
+    <string name="field_connections">平行 SSH 連線數</string>
+    <string name="field_connections_hint">把流量分散到多條 SSH 連線,避免 head-of-line blocking 與伺服器端單執行緒加解密瓶頸。</string>
+    <string name="field_keepalive">Keepalive 間隔</string>
+    <string name="field_keepalive_hint">超過此間隔無回應即判定斷線並自動重連。</string>
+    <string name="field_udpgw">透過 udpgw 轉送 UDP</string>
+    <string name="field_udpgw_hint">伺服器需執行 badvpn-udpgw。未啟用時只有 DNS 會經由 UDP 轉送。</string>
+    <string name="field_udpgw_address">udpgw 位址(以伺服器角度)</string>
+
+    <string name="section_auth">認證</string>
+    <string name="section_advanced">進階</string>
+    <string name="auth_password">密碼</string>
+    <string name="auth_key">金鑰</string>
+    <string name="auth_key_password">金鑰＋密碼</string>
+    <string name="label_public_key">公鑰(加入伺服器的 ~/.ssh/authorized_keys)</string>
+    <string name="keygen_title">已產生金鑰</string>
+    <string name="keygen_body">將此公鑰加入伺服器的 ~/.ssh/authorized_keys,再儲存設定檔。</string>
+
+    <string name="test_ok">連線成功</string>
+    <string name="test_timing">握手 %1$d ms · RTT %2$d ms</string>
+    <string name="test_udpgw_ok">udpgw 可連線</string>
+    <string name="test_udpgw_fail">udpgw 無法連線:%1$s</string>
+
+    <string name="settings_apply_on_reconnect">變更將於下次連線時生效。</string>
+    <string name="section_dns">DNS</string>
+    <string name="section_routing">路由</string>
+    <string name="section_apps">分應用程式代理</string>
+    <string name="section_proxy">本機代理</string>
+    <string name="section_security">安全性</string>
+    <string name="section_appearance">外觀</string>
+    <string name="section_about">關於</string>
+
+    <string name="pref_dns_upstream">DNS 伺服器</string>
+    <string name="pref_dns_upstream_hint">由 SSH 伺服器端以 DNS-over-TCP 查詢。填 IP 或 host[:port]。</string>
+    <string name="pref_dns_cache">DNS 快取</string>
+    <string name="pref_dns_cache_summary">依 TTL 在本機快取回應,省下往返時間</string>
+    <string name="pref_custom">自訂…</string>
+    <string name="pref_ipv6">路由 IPv6</string>
+    <string name="pref_ipv6_summary">一併接管 IPv6 流量,防止繞過通道洩漏</string>
+    <string name="pref_bypass_lan">略過區域網路</string>
+    <string name="pref_bypass_lan_summary">私有與鏈路本地位址直接連線</string>
+    <string name="pref_excluded_routes">排除網段</string>
+    <string name="pref_excluded_routes_hint">CIDR 清單,一行一個,例如 203.0.113.0/24</string>
+    <string name="pref_none">無</string>
+    <string name="pref_mtu">MTU</string>
+    <string name="pref_mtu_hint">MTU 越大,經過使用者空間協定堆疊的封包越少。預設 8500。</string>
+    <string name="pref_app_mode">模式</string>
+    <string name="pref_select_apps">選擇 App</string>
+    <string name="pref_select_apps_summary">已選 %1$d 個</string>
+    <string name="pref_socks">SOCKS5 代理</string>
+    <string name="pref_socks_summary">連線時同時提供 SOCKS5 代理</string>
+    <string name="pref_socks_port">SOCKS5 連接埠</string>
+    <string name="pref_socks_lan">允許區域網路存取</string>
+    <string name="pref_socks_lan_summary">讓其他裝置(例如經由熱點)使用代理。無認證,請留意!</string>
+    <string name="pref_known_hosts_summary">首次連線時信任的主機金鑰</string>
+    <string name="pref_always_on">永久連線 VPN</string>
+    <string name="pref_always_on_summary">開啟系統 VPN 設定,啟用永久連線並封鎖未經 VPN 的連線</string>
+    <string name="pref_theme">主題</string>
+    <string name="pref_dynamic_color">動態色彩</string>
+    <string name="pref_dynamic_color_summary">使用桌布配色</string>
+    <string name="pref_log_level">日誌等級</string>
+    <string name="pref_version">版本</string>
+    <string name="pref_inspired">靈感來源</string>
+
+    <string name="app_mode_all">所有 App</string>
+    <string name="app_mode_allow">僅選取的 App</string>
+    <string name="app_mode_disallow">選取的 App 以外</string>
+    <string name="theme_system">跟隨系統</string>
+    <string name="theme_light">淺色</string>
+    <string name="theme_dark">深色</string>
+    <string name="log_debug">偵錯</string>
+    <string name="log_info">資訊</string>
+    <string name="log_warn">警告</string>
+    <string name="log_error">錯誤</string>
+
+    <string name="apps_search">搜尋 App</string>
+    <string name="apps_show_system">顯示系統 App</string>
+    <string name="apps_hide_system">隱藏系統 App</string>
+    <string name="apps_select_visible">全選目前顯示</string>
+    <string name="apps_clear">清除選取</string>
+
+    <string name="logs_empty">尚無日誌</string>
+    <string name="logs_filter">篩選</string>
+
+    <string name="known_hosts_empty">尚無信任的主機。\n首次連線時會記住主機金鑰。</string>
+    <string name="known_hosts_forget_title">忘記主機金鑰?</string>
+    <string name="known_hosts_forget_body">下次連線到 %1$s 時,將信任其出示的任何金鑰。</string>
+</resources>
