@@ -13,7 +13,7 @@ concurrency:
 
 env:
   NDK_VERSION: 28.2.13676358
-  COMPILE_SDK: 37
+  COMPILE_SDK: "37.0"
 
 jobs:
   core-test:
