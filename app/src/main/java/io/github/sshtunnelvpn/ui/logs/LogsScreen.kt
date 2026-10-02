@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +57,7 @@ private val levelTag = arrayOf("D", "I", "W", "E")
 
 private fun LogEntry.format() = "${timeFmt.format(Date(time))} ${levelTag.getOrElse(level) { "?" }} $message"
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsScreen(onBack: () -> Unit) {
     val ctx = LocalContext.current

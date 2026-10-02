@@ -382,7 +382,7 @@ private fun TestResultCard(state: TestState, onTrust: (io.github.sshtunnelvpn.tu
                         Text(r.serverVersion, style = MaterialTheme.typography.bodySmall)
                         Text(stringResource(R.string.test_timing, r.handshakeMs, r.rttMillis), style = MaterialTheme.typography.bodySmall)
                         Text("${r.hostKeyType} ${r.fingerprint}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
-                        if (r.udpgwOK) Text(stringResource(R.string.test_udpgw_ok), style = MaterialTheme.typography.bodySmall)
+                        if (r.getUDPGWOK()) Text(stringResource(R.string.test_udpgw_ok), style = MaterialTheme.typography.bodySmall)
                         if (r.udpgwError.isNotEmpty()) {
                             Text(stringResource(R.string.test_udpgw_fail, r.udpgwError), style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error)
