@@ -45,6 +45,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
+        // 與 gomobile -target 一致;gVisor 不支援 32-bit ARM,不能讓 32-bit 裝置裝了才崩潰
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
     signingConfigs {
