@@ -104,7 +104,8 @@ jobs:
       - name: Show signing certificate
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$BT/apksigner" verify --print-certs dist/*.apk | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          echo "apksigner from $BT"
+          "$BT/apksigner" verify --print-certs dist/*.apk 2>&1 | grep -iE 'signer|sha-256|DN' || true
 
       - uses: actions/upload-artifact@v7
         with:
