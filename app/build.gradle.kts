@@ -51,6 +51,15 @@ android {
     }
 
     signingConfigs {
+        // 固定 debug 金鑰(CI 由 secret 解出並以 DEBUG_KEYSTORE 指定路徑):簽章不變才能覆蓋安裝、保留 App 資料
+        System.getenv("DEBUG_KEYSTORE")?.let { path ->
+            getByName("debug") {
+                storeFile = file(path)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
         // 若有 keystore.properties 則用正式金鑰,否則 release 退回 debug 簽章以便側載測試
         val ksFile = rootProject.file("keystore.properties")
         if (ksFile.exists()) {

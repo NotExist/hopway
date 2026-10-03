@@ -76,8 +76,8 @@ jobs:
           if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
             echo "::error::secret DEBUG_KEYSTORE_BASE64 is missing"; exit 1
           fi
-          mkdir -p ~/.android
-          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          echo "DEBUG_KEYSTORE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
 
       - name: Release signing key
         if: env.VARIANT == 'release'
@@ -101,11 +101,20 @@ jobs:
           mkdir -p dist
           cp app/build/outputs/apk/"$VARIANT"/*.apk "dist/SSHTunnelVPN-${VARIANT}-0.1.0-${VERSION_CODE}.apk"
 
-      - name: Show signing certificate
+      # 確認 APK 真的用固定 debug 金鑰簽章(比對公鑰 modulus),否則覆蓋安裝會失敗
+      - name: Verify debug signature
+        if: env.VARIANT == 'debug'
         run: |
-          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          echo "apksigner from $BT"
-          "$BT/apksigner" verify --print-certs dist/*.apk 2>&1 | grep -iE 'signer|sha-256|DN' || true
+          keytool -exportcert -keystore "$DEBUG_KEYSTORE" -storepass android -alias androiddebugkey -file "$RUNNER_TEMP/cert.der"
+          openssl x509 -inform der -in "$RUNNER_TEMP/cert.der" -noout -modulus | cut -d= -f2 > "$RUNNER_TEMP/mod.hex"
+          python3 - <<'PY'
+          import glob, os, sys
+          m = bytes.fromhex(open(os.environ["RUNNER_TEMP"] + "/mod.hex").read().strip())
+          apk = open(glob.glob("dist/*.apk")[0], "rb").read()
+          ok = m[64:128] in apk
+          print("signed with fixed debug key:", ok)
+          sys.exit(0 if ok else 1)
+          PY
 
       - uses: actions/upload-artifact@v7
         with:
