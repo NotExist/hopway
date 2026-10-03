@@ -31,10 +31,17 @@ Kotlin/Compose UI ←── gomobile binding (sshvpn.aar) ── stats / state /
 
 ## Building
 
-Builds run on GitHub Actions (`.github/workflows/build.yml`): Go core tests → gomobile AAR → debug/release APK,
-uploaded as the `apk` artifact. Pushing a `v*` tag creates a GitHub Release.
-Release signing uses the secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`;
-without them the release APK is debug-signed.
+Builds run on GitHub Actions (`.github/workflows/build.yml`):
+
+| Trigger | What runs |
+|---|---|
+| push / pull request | Go core tests only |
+| manual (`workflow_dispatch`) | Go tests → debug APK (artifact `SSHTunnelVPN-debug-<versionCode>`) |
+| push tag `v*` | Go tests → release APK → GitHub Release |
+
+- `versionName` is fixed at `0.1.0`; `versionCode` is the workflow run number, so every build increases it.
+- Debug builds are signed with a fixed key from the secret `DEBUG_KEYSTORE_BASE64`, so new debug builds install over old ones and keep app data.
+- Release builds require `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`; the job fails without them.
 
 Toolchain used by CI: Go (from `core/go.mod`), JDK 21, Android platform 37, NDK 28.2.13676358.
 gomobile/gobind are pinned via the `tool` block in `core/go.mod`.

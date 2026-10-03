@@ -1,5 +1,8 @@
 name: Build
 
+# - push / PR:只跑 Go 測試
+# - 手動觸發(workflow_dispatch):建 debug APK
+# - 推 v* tag:建 release APK 並發 GitHub Release
 on:
   push:
     branches: [main]
@@ -33,9 +36,16 @@ jobs:
         run: go test -race -count=1 -timeout 300s ./...
 
   apk:
-    name: Build APK
+    name: Build ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || 'debug' }} APK
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     needs: core-test
+    permissions:
+      contents: write # 發 Release 用
+    env:
+      VARIANT: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || 'debug' }}
+      # 同一個 workflow 檔共用 run_number,每次建置遞增
+      VERSION_CODE: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v7
 
@@ -57,29 +67,49 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Signing config (release only, if secrets exist)
-        if: startsWith(github.ref, 'refs/tags/v')
+      # 固定的 debug 金鑰:簽章不變才能覆蓋安裝,保留 App 資料(伺服器設定等)
+      - name: Debug signing key
+        if: env.VARIANT == 'debug'
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "::error::secret DEBUG_KEYSTORE_BASE64 is missing"; exit 1
+          fi
+          mkdir -p ~/.android
+          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+
+      - name: Release signing key
+        if: env.VARIANT == 'release'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > release.jks
-            printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-              "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::release keystore secrets are missing (KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD)"; exit 1
           fi
+          echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
 
       - name: Unit tests + assemble
-        run: ./gradlew --stacktrace :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
+        run: |
+          TASK="assemble${VARIANT^}"
+          ./gradlew --stacktrace -PversionCode="$VERSION_CODE" :app:testDebugUnitTest ":app:$TASK"
+          mkdir -p dist
+          cp app/build/outputs/apk/"$VARIANT"/*.apk "dist/SSHTunnelVPN-${VARIANT}-0.1.0-${VERSION_CODE}.apk"
+
+      - name: Show signing certificate
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs dist/*.apk | grep -E 'Signer #1 certificate (DN|SHA-256)'
 
       - uses: actions/upload-artifact@v7
         with:
-          name: apk
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
+          name: SSHTunnelVPN-${{ env.VARIANT }}-${{ env.VERSION_CODE }}
+          path: dist/*.apk
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
@@ -89,8 +119,8 @@ jobs:
           path: app/build/reports/
 
       - name: GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.VARIANT == 'release'
         uses: softprops/action-gh-release@v3
         with:
-          files: app/build/outputs/apk/release/*.apk
+          files: dist/*.apk
           generate_release_notes: true
