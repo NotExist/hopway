@@ -158,4 +158,16 @@
     <string name="known_hosts_empty">No trusted hosts yet.\nHost keys are remembered on the first connection.</string>
     <string name="known_hosts_forget_title">Forget host key?</string>
     <string name="known_hosts_forget_body">The next connection to %1$s will trust whatever key it presents.</string>
+    <string name="action_sort">Sort</string>
+    <string name="sort_name">By name</string>
+    <string name="sort_latency">By latency</string>
+    <string name="latency_timeout">Timeout</string>
+    <string name="place_private">Private network</string>
+    <string name="label_entry">Entry</string>
+    <string name="label_exit">Exit</string>
+    <string name="label_exit_unknown">Exit IP unknown — connect or use “Check exit IP”</string>
+    <string name="action_check_exit">Check exit IP</string>
+    <string name="exit_check_failed">Exit IP check failed: %1$s</string>
+    <string name="pref_ipinfo">IP data</string>
+    <string name="pref_ipinfo_summary">Country/IP from ipinfo.io. Server IPs are sent to ipinfo.io; exit IPs are queried through the tunnel.</string>
 </resources>

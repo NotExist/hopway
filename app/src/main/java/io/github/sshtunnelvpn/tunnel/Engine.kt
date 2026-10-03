@@ -25,7 +25,7 @@ object TunAddress {
 }
 
 object EngineConfig {
-    fun json(p: Profile, s: AppSettings?, virtualDns: String?): String = buildJsonObject {
+    fun json(p: Profile, s: AppSettings?, virtualDns: String?, exitCheckUrl: String? = null): String = buildJsonObject {
         put("host", p.host.trim())
         put("port", p.port)
         put("user", p.username.trim())
@@ -47,6 +47,7 @@ object EngineConfig {
             }
         }
         if (virtualDns != null) put("virtualDns", virtualDns)
+        if (exitCheckUrl != null) put("exitCheckUrl", exitCheckUrl)
     }.toString()
 }
 
@@ -93,7 +94,9 @@ open class BasePlatform(
 }
 
 object EngineOps {
-    suspend fun test(p: Profile, platform: Platform): Result<TestResult> = withContext(Dispatchers.IO) {
-        runCatching { Sshvpn.testConnection(EngineConfig.json(p, null, null), platform) }
-    }
+    /** [exitCheckUrl] 非空時,測試連線後經通道查詢出口資訊。 */
+    suspend fun test(p: Profile, platform: Platform, exitCheckUrl: String? = null): Result<TestResult> =
+        withContext(Dispatchers.IO) {
+            runCatching { Sshvpn.testConnection(EngineConfig.json(p, null, null, exitCheckUrl), platform) }
+        }
 }

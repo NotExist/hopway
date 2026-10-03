@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.sshtunnelvpn.AppContainer
 import io.github.sshtunnelvpn.data.AuthType
+import io.github.sshtunnelvpn.data.IpInfo
+import io.github.sshtunnelvpn.data.IpInfoRepository
 import io.github.sshtunnelvpn.data.Profile
 import io.github.sshtunnelvpn.sshvpn.Sshvpn
 import io.github.sshtunnelvpn.sshvpn.TestResult
@@ -38,10 +40,13 @@ class ProfileEditViewModel(private val c: AppContainer, private val id: String?)
     var keyError by mutableStateOf<String?>(null)
         private set
     var generatedKey by mutableStateOf<KeyInfo?>(null)
+    var exit by mutableStateOf<IpInfo?>(null)
+        private set
+    private var original: Profile? = null
 
     init {
         if (id != null) viewModelScope.launch {
-            c.profiles.get(id)?.let { profile = it }
+            c.profiles.get(id)?.let { profile = it; original = it }
             loaded = true
             inspectKey()
         }
@@ -97,11 +102,15 @@ class ProfileEditViewModel(private val c: AppContainer, private val id: String?)
 
     fun runTest() {
         test = TestState.Running
+        exit = null
         var mismatch: HostKeyMismatch? = null
         val platform = BasePlatform(c.knownHosts, persistHostKeys = false, onMismatch = { mismatch = it }, logs = c.logs)
         viewModelScope.launch {
-            test = EngineOps.test(profile, platform).fold(
-                onSuccess = { TestState.Ok(it) },
+            test = EngineOps.test(profile, platform, IpInfoRepository.EXIT_URL).fold(
+                onSuccess = {
+                    exit = it.exitInfo.takeIf(String::isNotEmpty)?.let(IpInfoRepository::parse)
+                    TestState.Ok(it)
+                },
                 onFailure = { TestState.Failed(it.message ?: it.toString(), mismatch) },
             )
         }
@@ -117,6 +126,10 @@ class ProfileEditViewModel(private val c: AppContainer, private val id: String?)
     suspend fun save() {
         val p = profile.let { it.copy(host = it.host.trim(), username = it.username.trim(), name = it.name.trim()) }
         c.profiles.upsert(p)
+        val o = original
+        // 端點變了,舊的出口資訊不再可信;本次測試若有查到出口則直接記下
+        if (o != null && (o.host != p.host || o.port != p.port || o.username != p.username)) c.ipInfo.forget(p.id)
+        exit?.let { c.ipInfo.recordExit(p.id, it) }
         val s = c.settings.current()
         if (s.selectedProfileId == null || c.profiles.get(s.selectedProfileId) == null) {
             c.settings.update { it.copy(selectedProfileId = p.id) }

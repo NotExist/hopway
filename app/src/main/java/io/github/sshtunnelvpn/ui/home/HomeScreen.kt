@@ -88,6 +88,7 @@ import io.github.sshtunnelvpn.tunnel.TunnelState
 import io.github.sshtunnelvpn.tunnel.TunnelStatus
 import io.github.sshtunnelvpn.ui.Route
 import io.github.sshtunnelvpn.ui.components.SpeedChart
+import io.github.sshtunnelvpn.ui.profiles.placeLabel
 import io.github.sshtunnelvpn.ui.formatBytes
 import io.github.sshtunnelvpn.ui.formatDuration
 import io.github.sshtunnelvpn.ui.formatRate
@@ -103,6 +104,7 @@ fun HomeScreen(navigate: (Route) -> Unit, connectRequest: Int) {
     val mismatch by c.tunnel.hostKeyMismatch.collectAsStateWithLifecycle()
     val settings by c.settings.settings.collectAsStateWithLifecycle(AppSettings())
     val profiles by c.profiles.profiles.collectAsStateWithLifecycle(emptyList())
+    val exits by c.ipInfo.exits.collectAsStateWithLifecycle(emptyMap())
     val selected = profiles.find { it.id == settings.selectedProfileId } ?: profiles.firstOrNull()
     val scope = rememberCoroutineScope()
 
@@ -153,7 +155,7 @@ fun HomeScreen(navigate: (Route) -> Unit, connectRequest: Int) {
             Spacer(Modifier.height(16.dp))
             StatusLine(status)
             Spacer(Modifier.height(24.dp))
-            ProfileCard(selected, onClick = { navigate(if (profiles.isEmpty()) Route.EditProfile() else Route.Profiles) })
+            ProfileCard(selected, selected?.let { exits[it.id] }, onClick = { navigate(if (profiles.isEmpty()) Route.EditProfile() else Route.Profiles) })
             AnimatedVisibility(status.state == TunnelState.CONNECTED || status.state == TunnelState.RECONNECTING) {
                 Column {
                     Spacer(Modifier.height(12.dp))
@@ -270,7 +272,7 @@ private fun StatusLine(s: TunnelStatus) {
 }
 
 @Composable
-private fun ProfileCard(p: Profile?, onClick: () -> Unit) {
+private fun ProfileCard(p: Profile?, exit: io.github.sshtunnelvpn.data.IpInfo?, onClick: () -> Unit) {
     ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -300,6 +302,15 @@ private fun ProfileCard(p: Profile?, onClick: () -> Unit) {
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    exit?.let {
+                        Text(
+                            listOfNotNull(stringResource(R.string.label_exit), placeLabel(it), it.ip).joinToString("  "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
             Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)

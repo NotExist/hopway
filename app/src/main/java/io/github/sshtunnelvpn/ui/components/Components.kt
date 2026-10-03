@@ -1,6 +1,8 @@
 package io.github.sshtunnelvpn.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -222,5 +224,35 @@ fun SpeedChart(samples: List<TrafficSample>, capacity: Int, modifier: Modifier =
         drawPath(fill, Brush.verticalGradient(listOf(rxColor.copy(alpha = 0.35f), rxColor.copy(alpha = 0f))))
         drawPath(rx, rxColor, style = Stroke(width = 2.5.dp.toPx()))
         drawPath(path { it.txRate }, txColor, style = Stroke(width = 1.5.dp.toPx()))
+    }
+}
+
+/** 延遲標籤:<80 ms 綠、<200 ms 黃、其餘紅;失敗灰色「—」;live = 來自 SSH keepalive 的即時值。 */
+@Composable
+fun LatencyBadge(ms: Long?, failed: Boolean, measuring: Boolean, live: Boolean, modifier: Modifier = Modifier) {
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val (bg, fg) = when {
+        failed -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        ms == null -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        ms < 80 -> (if (dark) Color(0xFF1B5E20) else Color(0xFFC8E6C9)) to (if (dark) Color(0xFFC8E6C9) else Color(0xFF1B5E20))
+        ms < 200 -> (if (dark) Color(0xFF5D4300) else Color(0xFFFFE082)) to (if (dark) Color(0xFFFFE082) else Color(0xFF5D4300))
+        else -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+    }
+    androidx.compose.material3.Surface(color = bg, contentColor = fg, shape = androidx.compose.foundation.shape.RoundedCornerShape(50), modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
+            if (live) {
+                androidx.compose.foundation.layout.Box(
+                    Modifier
+                        .padding(end = 6.dp)
+                        .size(6.dp)
+                        .background(fg, androidx.compose.foundation.shape.CircleShape),
+                )
+            }
+            when {
+                ms != null && !failed -> Text("$ms ms", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                measuring -> androidx.compose.material3.CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp, color = fg)
+                else -> Text(if (failed) stringResource(R.string.latency_timeout) else "—", style = MaterialTheme.typography.labelMedium)
+            }
+        }
     }
 }

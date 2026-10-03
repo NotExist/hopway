@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"strconv"
 	"sync"
@@ -251,6 +252,9 @@ type TestResult struct {
 	Fingerprint   string
 	UDPGWOK       bool
 	UDPGWError    string
+	// ExitInfo 為經通道 GET ExitCheckURL 的回應 body(JSON),ExitError 為失敗原因
+	ExitInfo  string
+	ExitError string
 }
 
 // TestConnection 以給定設定做一次 SSH 握手 + 認證 + keepalive,不建立 VPN。
@@ -288,6 +292,14 @@ func TestConnection(configJSON string, p Platform) (*TestResult, error) {
 		} else {
 			res.UDPGWOK = true
 			c.Close()
+		}
+	}
+	if cfg.ExitCheckURL != "" {
+		dial := func(ctx context.Context, addr string) (net.Conn, error) { return client.DialContext(ctx, "tcp", addr) }
+		if body, err := httpGet(ctx, dial, cfg.ExitCheckURL); err != nil {
+			res.ExitError = err.Error()
+		} else {
+			res.ExitInfo = body
 		}
 	}
 	return res, nil

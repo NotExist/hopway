@@ -17,6 +17,7 @@ import io.github.sshtunnelvpn.R
 import io.github.sshtunnelvpn.container
 import io.github.sshtunnelvpn.data.AppMode
 import io.github.sshtunnelvpn.data.AppSettings
+import io.github.sshtunnelvpn.data.IpInfoRepository
 import io.github.sshtunnelvpn.data.Profile
 import io.github.sshtunnelvpn.sshvpn.Sshvpn
 import io.github.sshtunnelvpn.ui.MainActivity
@@ -287,6 +288,21 @@ class TunnelVpnService : VpnService() {
         super.onDestroy()
     }
 
+    /** 經通道查出口 IP/國家;同一伺服器 10 分鐘內不重查。不放在 serial scope,以免慢查詢卡住啟停。 */
+    private fun checkExit(profileId: String) {
+        val ipInfo = container.ipInfo
+        container.appScope.launch(Dispatchers.IO) {
+            if (ipInfo.exitCheckedRecently(profileId)) return@launch
+            runCatching { Sshvpn.fetchViaTunnel(IpInfoRepository.EXIT_URL, 8000) }
+                .mapCatching { IpInfoRepository.parse(it) ?: error("unexpected response") }
+                .onSuccess {
+                    ipInfo.recordExit(profileId, it)
+                    logs.add(LogBuffer.INFO, "Exit IP ${it.ip} (${it.country ?: "?"})")
+                }
+                .onFailure { logs.add(LogBuffer.WARN, "Exit IP check failed: ${it.message}") }
+        }
+    }
+
     private inner class ServicePlatform : BasePlatform(
         container.knownHosts,
         persistHostKeys = true,
@@ -301,6 +317,7 @@ class TunnelVpnService : VpnService() {
                 Sshvpn.StateConnected.toInt() -> {
                     controller.update { it.copy(state = TunnelState.CONNECTED, error = null) }
                     notifyText(getString(R.string.state_connected))
+                    profile?.let { checkExit(it.id) }
                 }
                 Sshvpn.StateReconnecting.toInt() -> {
                     controller.update { it.copy(state = TunnelState.RECONNECTING) }

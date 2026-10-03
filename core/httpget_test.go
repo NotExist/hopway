@@ -1,0 +1,82 @@
+package sshvpn
+
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+)
+
+// ipinfo 替身:回傳請求來源 IP,驗證請求確實由 SSH 伺服器端發出。
+func startFakeIPInfo(t *testing.T) string {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"ip":"%s","country":"JP"}`, strings.Split(r.RemoteAddr, ":")[0])
+	}))
+	t.Cleanup(srv.Close)
+	return strings.TrimPrefix(srv.URL, "http://")
+}
+
+func TestFetchViaTunnel(t *testing.T) {
+	info := startFakeIPInfo(t)
+	srv := newTestSSHServer(t, "pw", nil)
+	var dialed string
+	srv.redirect = func(addr string) string {
+		dialed = addr
+		if addr == "ipinfo.test:80" {
+			return info
+		}
+		return addr
+	}
+	if _, err := FetchViaTunnel("http://ipinfo.test/json", 3000); err == nil {
+		t.Fatal("expected error when tunnel is not running")
+	}
+	plat := newTestPlatform(t)
+	if err := Start(-1, cfgJSON(t, map[string]any{
+		"host": "127.0.0.1", "port": srv.port(), "user": "u", "password": "pw",
+	}), plat); err != nil {
+		t.Fatal(err)
+	}
+	defer Stop()
+	plat.waitState(t, StateConnected, 5*time.Second)
+	body, err := FetchViaTunnel("http://ipinfo.test/json", 5000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 主機名必須由伺服器端解析(以名稱送出 direct-tcpip),而非手機端
+	if dialed != "ipinfo.test:80" || !strings.Contains(body, `"country":"JP"`) {
+		t.Fatalf("dialed=%q body=%q", dialed, body)
+	}
+}
+
+func TestTestConnectionExitCheck(t *testing.T) {
+	info := startFakeIPInfo(t)
+	srv := newTestSSHServer(t, "pw", nil)
+	srv.redirect = func(addr string) string {
+		if addr == "ipinfo.test:80" {
+			return info
+		}
+		return addr
+	}
+	res, err := TestConnection(cfgJSON(t, map[string]any{
+		"host": "127.0.0.1", "port": srv.port(), "user": "u", "password": "pw",
+		"exitCheckUrl": "http://ipinfo.test/json",
+	}), newTestPlatform(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ExitError != "" || !strings.Contains(res.ExitInfo, `"ip":"127.0.0.1"`) {
+		t.Fatalf("exit info=%q err=%q", res.ExitInfo, res.ExitError)
+	}
+
+	// 目的地不可達時回報錯誤而不是讓測試連線整體失敗
+	res, err = TestConnection(cfgJSON(t, map[string]any{
+		"host": "127.0.0.1", "port": srv.port(), "user": "u", "password": "pw",
+		"exitCheckUrl": "http://127.0.0.1:1/json",
+	}), newTestPlatform(t))
+	if err != nil || res.ExitError == "" {
+		t.Fatalf("expected exit error, got res=%+v err=%v", res, err)
+	}
+}

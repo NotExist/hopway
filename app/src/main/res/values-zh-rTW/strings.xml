@@ -158,4 +158,16 @@
     <string name="known_hosts_empty">尚無信任的主機。\n首次連線時會記住主機金鑰。</string>
     <string name="known_hosts_forget_title">忘記主機金鑰?</string>
     <string name="known_hosts_forget_body">下次連線到 %1$s 時,將信任其出示的任何金鑰。</string>
+    <string name="action_sort">排序</string>
+    <string name="sort_name">依名稱</string>
+    <string name="sort_latency">依延遲</string>
+    <string name="latency_timeout">逾時</string>
+    <string name="place_private">區網</string>
+    <string name="label_entry">入口</string>
+    <string name="label_exit">出口</string>
+    <string name="label_exit_unknown">出口 IP 未知——連線後或用「檢查出口 IP」取得</string>
+    <string name="action_check_exit">檢查出口 IP</string>
+    <string name="exit_check_failed">出口 IP 查詢失敗:%1$s</string>
+    <string name="pref_ipinfo">IP 資料來源</string>
+    <string name="pref_ipinfo_summary">國家/IP 資料來自 ipinfo.io。伺服器 IP 會送往 ipinfo.io;出口 IP 經通道查詢。</string>
 </resources>

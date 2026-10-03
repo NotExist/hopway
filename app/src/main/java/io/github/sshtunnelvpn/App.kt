@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import io.github.sshtunnelvpn.data.AppSettings
+import io.github.sshtunnelvpn.data.IpInfoRepository
+import io.github.sshtunnelvpn.data.IpInfoStore
 import io.github.sshtunnelvpn.data.KnownHostStore
 import io.github.sshtunnelvpn.data.KnownHostsRepository
 import io.github.sshtunnelvpn.data.ProfileRepository
@@ -45,6 +47,9 @@ class AppContainer(context: Context) {
     val settings = SettingsRepository(jsonDataStore(context, "settings.json", AppSettings.serializer(), AppSettings()))
     val knownHosts = KnownHostsRepository(
         jsonDataStore(context, "known_hosts.json", KnownHostStore.serializer(), KnownHostStore()),
+    )
+    val ipInfo = IpInfoRepository(
+        jsonDataStore(context, "ipinfo.json", IpInfoStore.serializer(), IpInfoStore()),
     )
     val logs = LogBuffer()
     val tunnel = TunnelController(context.applicationContext)

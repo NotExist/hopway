@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Router
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.VpnLock
@@ -148,6 +149,9 @@ fun SettingsScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
                 dialog = Dialog.LOG_LEVEL
             }
             PrefItem(stringResource(R.string.pref_version), BuildConfig.VERSION_NAME, Icons.Outlined.Info)
+            PrefItem(stringResource(R.string.pref_ipinfo), stringResource(R.string.pref_ipinfo_summary), Icons.Outlined.Public) {
+                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://ipinfo.io")))
+            }
             PrefItem(stringResource(R.string.pref_inspired), "github.com/Anton2319/VPNoverSSH", Icons.Outlined.Code) {
                 ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Anton2319/VPNoverSSH")))
             }

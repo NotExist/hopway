@@ -38,6 +38,9 @@ type Config struct {
 	SocksListen string `json:"socksListen,omitempty"`
 
 	LogLevel int `json:"logLevel,omitempty"`
+
+	// TestConnection 專用:非空時於測試連線後經通道 GET 此 URL(查出口 IP)。
+	ExitCheckURL string `json:"exitCheckUrl,omitempty"`
 }
 
 func parseConfig(s string) (*Config, error) {
