@@ -1,4 +1,4 @@
-# Hopway(本機資料夾 sshtunnelvpn_android)
+# Hopway
 
 以 SSH 伺服器為出口的 Android 全域 VPN(原名 SSH Tunnel VPN,2026-10-04 改名 Hopway),重製自 VPNoverSSH。applicationId / Kotlin package:`not.exist.hopway`。目前狀態、待辦與里程碑見 `HANDOFF.md`(單一事實來源)。
 

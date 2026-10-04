@@ -1,4 +1,4 @@
-# HANDOFF — Hopway(原 SSH Tunnel VPN;本機資料夾 sshtunnelvpn_android)
+# HANDOFF — Hopway(原 SSH Tunnel VPN)
 
 ## 當前狀態(2026-10-03)
 
@@ -48,3 +48,4 @@
 - 2026-10-04:新增連線歸屬偵錯日誌(Go `Platform.ConnectionOwner`,Kotlin 以 `getConnectionOwnerUid` 實作,設定開關預設關閉);引擎背景 goroutine 統一由 bgGroup 管理,停止後不再回呼。
 - 2026-10-04:記錄「通用出口」參考設計(user 期望的長期方向,暫不實作)。
 - 2026-10-04:全面改名 Hopway(顯示名、repo、package、module、applicationId `not.exist.hopway`、識別字串、APK 檔名);舊格式備份檔仍可匯入。舊 applicationId 的 debug 版需另行解除安裝。
+- 2026-10-04:本機資料夾改為 `/workspace/_self/hopway`、Claude 專案目錄改為 `~/.claude/projects/-workspace--self-hopway`(transcript 與記憶);舊路徑皆留符號連結以免中斷,確認無用後可刪。接續請 `cd /workspace/_self/hopway && claude -c`。
