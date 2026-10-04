@@ -41,8 +41,8 @@ Builds run on GitHub Actions; each workflow has exactly one purpose, selected by
 
 Shared setup (Go, JDK 21, Android platform/NDK, Gradle cache) lives in `.github/actions/android-setup`.
 `versionName` is fixed at `0.1.0`; `versionCode` = Unix time in minutes at build time, so every build increases it.
-APK / artifact names: `SSHTunnelVPN-0.1.0-debug-<versionCode>-<yyyyMMdd-HHmm Asia/Taipei>-<sha7>` and `SSHTunnelVPN-<tag>-release-<versionCode>-<yyyyMMdd-HHmm>`.
-The fixed debug key lets new debug builds install over old ones without losing app data.
+Build time and commit are baked into `BuildConfig` and shown in Settings → About.
+APK / artifact names: `SSHTunnelVPN-0.1.0-debug-<yyyyMMdd-HHmm, UTC+8>-<sha7>` and `SSHTunnelVPN-<tag>-release-<yyyyMMdd-HHmm>`.
 
 Toolchain used by CI: Go (from `core/go.mod`), JDK 21, Android platform 37, NDK 28.2.13676358.
 gomobile/gobind are pinned via the `tool` block in `core/go.mod`.

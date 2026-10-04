@@ -5,7 +5,7 @@
 - Repo:https://github.com/NotExist/sshtunnelvpn_android(public,branch `main`)
 - **建置一律走 GitHub Actions**(`.github/workflows/build.yml`),本地不裝 Android SDK/NDK、不跑 Gradle。
   - 三個 workflow 各司其職,以觸發條件區分:`test.yml`「Run tests」(push main/PR,文件變更不觸發;Go + Kotlin 單元測試)、`build-debug.yml`「Build debug APK」(只手動:`gh workflow run build-debug.yml`)、`publish-release.yml`「Publish release」(只在 `v*` tag)。共用環境在 `.github/actions/android-setup`。舊 `build.yml` 的執行紀錄已刪除。
-  - `versionName` 固定 0.1.0,`versionCode` = 分鐘級 Unix timestamp(`date +%s / 60`,約 2,940 萬;與 workflow 名稱、run number 無關)。APK/artifact 檔名含版本、變體、versionCode、建置時間(台灣時間)、commit。
+  - `versionName` 固定 0.1.0,`versionCode` = 分鐘級 Unix timestamp(`date +%s / 60`,約 2,940 萬;與 workflow 名稱、run number 無關)。APK/artifact 檔名為 `SSHTunnelVPN-0.1.0-debug-<yyyyMMdd-HHmm 台灣時間>-<commit>`;versionCode、建置時間、commit 顯示在「設定 → 關於 → 版本」。三者取自同一時間點。
   - debug 以固定金鑰簽章:secret `DEBUG_KEYSTORE_BASE64`(本機備份 `~/.android/sshtunnelvpn-debug.keystore`,`android`/`androiddebugkey`),build-debug.yml 會驗證簽章。
   - release keystore secrets 尚未建立 → 推 tag 會失敗(刻意,避免發出 debug 簽章的 release)。
 - Go core(`core/`)完成,本地 `go test -race` 6 項端到端測試全過(TCP 8×2MB 雙向、平行 SSH、DNS pipelining+快取、udpgw、SOCKS5、斷線重連、認證失敗、host key 拒絕、加密私鑰)。

@@ -46,6 +46,9 @@ android {
         // CI 以 -PversionCode=<分鐘級 Unix timestamp> 帶入,每次建置遞增;本地預設 1
         versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = "0.1.0"
+        // 由 CI 帶入(與 versionCode 同一時間點);不在這裡取現在時間,以免每次建置 BuildConfig 都變動、cache 失效
+        buildConfigField("String", "BUILD_TIME", "\"${findProperty("buildTime") ?: "local"}\"")
+        buildConfigField("String", "BUILD_COMMIT", "\"${findProperty("buildCommit") ?: ""}\"")
         // 與 gomobile -target 一致;gVisor 不支援 32-bit ARM,不能讓 32-bit 裝置裝了才崩潰
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }

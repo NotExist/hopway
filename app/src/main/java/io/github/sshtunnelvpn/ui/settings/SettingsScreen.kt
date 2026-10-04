@@ -156,7 +156,15 @@ fun SettingsScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
             PrefItem(stringResource(R.string.pref_log_level), logLevelLabel(s.logLevel), Icons.Outlined.BugReport) {
                 dialog = Dialog.LOG_LEVEL
             }
-            PrefItem(stringResource(R.string.pref_version), BuildConfig.VERSION_NAME, Icons.Outlined.Info)
+            PrefItem(
+                stringResource(R.string.pref_version),
+                buildString {
+                    append(BuildConfig.VERSION_NAME).append(" (").append(BuildConfig.VERSION_CODE).append(")")
+                    append('\n').append(BuildConfig.BUILD_TIME)
+                    if (BuildConfig.BUILD_COMMIT.isNotEmpty()) append(" · ").append(BuildConfig.BUILD_COMMIT)
+                },
+                Icons.Outlined.Info,
+            )
             PrefItem(stringResource(R.string.pref_ipinfo), stringResource(R.string.pref_ipinfo_summary), Icons.Outlined.Public) {
                 ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://ipinfo.io")))
             }

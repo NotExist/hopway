@@ -11,13 +11,17 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/android-setup
 
-      - name: Version code + file name
+      - name: Build metadata
         run: |
-          # versionCode = 分鐘級 Unix timestamp:建置即遞增,與 workflow/run number 無關
-          VERSION_CODE=$(( $(date -u +%s) / 60 ))
-          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
-          # 檔名:版本-變體-versionCode-建置時間(台灣時間)-commit
-          echo "APK_NAME=SSHTunnelVPN-0.1.0-debug-${VERSION_CODE}-$(TZ=Asia/Taipei date +%Y%m%d-%H%M)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          # versionCode、顯示用建置時間、檔名時間戳都取自同一個時間點
+          NOW=$(date -u +%s)
+          STAMP=$(TZ=Asia/Taipei date -d "@$NOW" +%Y%m%d-%H%M)
+          {
+            echo "VERSION_CODE=$(( NOW / 60 ))"                                   # 分鐘級 Unix timestamp
+            echo "BUILD_TIME=$(TZ=Asia/Taipei date -d "@$NOW" '+%Y-%m-%d %H:%M') (UTC+8)"
+            echo "BUILD_COMMIT=${GITHUB_SHA::7}"
+            echo "APK_NAME=SSHTunnelVPN-0.1.0-debug-${STAMP}-${GITHUB_SHA::7}"
+          } >> "$GITHUB_ENV"
 
       # 固定 debug 金鑰:簽章不變才能覆蓋安裝、保留 App 資料(伺服器設定等)
       - name: Debug signing key
@@ -32,7 +36,7 @@ jobs:
 
       - name: Build
         run: |
-          ./gradlew --stacktrace -PversionCode="$VERSION_CODE" :app:assembleDebug
+          ./gradlew --stacktrace -PversionCode="$VERSION_CODE" -PbuildTime="$BUILD_TIME" -PbuildCommit="$BUILD_COMMIT" :app:assembleDebug
           mkdir -p dist
           cp app/build/outputs/apk/debug/*.apk "dist/${APK_NAME}.apk"
 
