@@ -1,4 +1,4 @@
-name: Test
+name: Run tests
 
 # 每個 commit / PR 跑測試;純文件變更不觸發
 on:

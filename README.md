@@ -35,12 +35,12 @@ Builds run on GitHub Actions; each workflow has exactly one purpose, selected by
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `test.yml` | push to `main` / pull request (doc-only changes skipped) | Go core tests (race) + Kotlin unit tests |
-| `debug.yml` | manual (`gh workflow run debug.yml`) | Debug APK, signed with the fixed key in secret `DEBUG_KEYSTORE_BASE64` and verified |
-| `release.yml` | push tag `v*` | Release APK → GitHub Release; needs `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` |
+| `test.yml` — Run tests | push to `main` / pull request (doc-only changes skipped) | Go core tests (race) + Kotlin unit tests |
+| `build-debug.yml` — Build debug APK | manual (`gh workflow run build-debug.yml`) | Debug APK, signed with the fixed key in secret `DEBUG_KEYSTORE_BASE64` and verified |
+| `publish-release.yml` — Publish release | push tag `v*` | Release APK → GitHub Release; needs `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` |
 
 Shared setup (Go, JDK 21, Android platform/NDK, Gradle cache) lives in `.github/actions/android-setup`.
-`versionName` is fixed at `0.1.0`; `versionCode` = 100 + the workflow's run number, so every build increases it.
+`versionName` is fixed at `0.1.0`; `versionCode` = Unix time in minutes at build time, so every build increases it.
 APK / artifact names: `SSHTunnelVPN-0.1.0-debug-<versionCode>-<yyyyMMdd-HHmm Asia/Taipei>-<sha7>` and `SSHTunnelVPN-<tag>-release-<versionCode>-<yyyyMMdd-HHmm>`.
 The fixed debug key lets new debug builds install over old ones without losing app data.
 

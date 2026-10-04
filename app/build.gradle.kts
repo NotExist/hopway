@@ -43,7 +43,7 @@ android {
         applicationId = "io.github.sshtunnelvpn"
         minSdk = 26
         targetSdk = 36
-        // CI 以 -PversionCode=<github.run_number> 帶入,每次建置遞增;本地預設 1
+        // CI 以 -PversionCode=<分鐘級 Unix timestamp> 帶入,每次建置遞增;本地預設 1
         versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = "0.1.0"
         // 與 gomobile -target 一致;gVisor 不支援 32-bit ARM,不能讓 32-bit 裝置裝了才崩潰

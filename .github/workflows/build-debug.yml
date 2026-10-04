@@ -1,24 +1,20 @@
-name: Debug APK
+name: Build debug APK
 
-# 只在手動觸發時建置(Actions 頁面 Run workflow,或 gh workflow run debug.yml)
+# 只在手動觸發時建置(Actions 頁面 Run workflow,或 gh workflow run build-debug.yml)
 on: workflow_dispatch
 
-env:
-  # 拆分 workflow 前已發到 versionCode 15;加上基數確保持續遞增、可覆蓋安裝
-  VERSION_CODE_BASE: 100
-
 jobs:
-  apk:
-    name: Debug APK
+  build:
+    name: Build debug APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/android-setup
 
-      # GitHub expressions 不支援算術,在 shell 算好寫入環境變數
       - name: Version code + file name
         run: |
-          VERSION_CODE=$((VERSION_CODE_BASE + ${{ github.run_number }}))
+          # versionCode = 分鐘級 Unix timestamp:建置即遞增,與 workflow/run number 無關
+          VERSION_CODE=$(( $(date -u +%s) / 60 ))
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           # 檔名:版本-變體-versionCode-建置時間(台灣時間)-commit
           echo "APK_NAME=SSHTunnelVPN-0.1.0-debug-${VERSION_CODE}-$(TZ=Asia/Taipei date +%Y%m%d-%H%M)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"

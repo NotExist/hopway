@@ -1,16 +1,13 @@
-name: Release
+name: Publish release
 
 # 只在推 v* tag 時建置並發佈
 on:
   push:
     tags: ["v*"]
 
-env:
-  VERSION_CODE_BASE: 100
-
 jobs:
   release:
-    name: Release APK
+    name: Build and publish release APK
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -18,10 +15,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/android-setup
 
-      # GitHub expressions 不支援算術,在 shell 算好寫入環境變數
       - name: Version code + file name
         run: |
-          VERSION_CODE=$((VERSION_CODE_BASE + ${{ github.run_number }}))
+          # versionCode = 分鐘級 Unix timestamp:建置即遞增,與 workflow/run number 無關
+          VERSION_CODE=$(( $(date -u +%s) / 60 ))
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           # 檔名:tag-變體-versionCode-建置時間(台灣時間)
           echo "APK_NAME=SSHTunnelVPN-${GITHUB_REF_NAME}-release-${VERSION_CODE}-$(TZ=Asia/Taipei date +%Y%m%d-%H%M)" >> "$GITHUB_ENV"
