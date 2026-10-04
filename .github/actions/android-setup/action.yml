@@ -1,0 +1,20 @@
+name: Android build setup
+description: Go + JDK 21 + Android platform/NDK + Gradle cache(debug / release / 單元測試共用)
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: core/go.mod
+        cache-dependency-path: core/go.sum
+    - uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: 21
+    - name: Install Android platform + NDK
+      shell: bash
+      run: |
+        yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true  # yes 會吃 SIGPIPE
+        "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+          "platforms;android-37.0" "ndk;28.2.13676358" > /dev/null
+    - uses: gradle/actions/setup-gradle@v6

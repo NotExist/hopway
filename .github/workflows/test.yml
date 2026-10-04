@@ -1,0 +1,41 @@
+name: Test
+
+# 每個 commit / PR 跑測試;純文件變更不觸發
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**"]
+  pull_request:
+    paths-ignore: ["**.md", "docs/**"]
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+      - run: go vet ./...
+        working-directory: core
+      - run: go test -race -count=1 -timeout 300s ./...
+        working-directory: core
+
+  kotlin:
+    name: Kotlin unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/android-setup
+      - run: ./gradlew --stacktrace :app:testDebugUnitTest
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: test-reports
+          path: app/build/reports/

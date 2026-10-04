@@ -91,12 +91,34 @@ data class Cidr(val address: InetAddress, val prefix: Int) {
     }
 }
 
+/** 要交給 VpnService.Builder 的路由:[include] 走 addRoute,[exclude] 走 excludeRoute(僅 API 33+)。 */
+data class RoutePlan(val include: List<Cidr>, val exclude: List<Cidr>)
+
 object Routes {
+    // loopback 本來就不會進 VPN,不需要排除;而且 Builder 遇到 loopback 位址會丟 "Bad address"
     val LAN_V4 = listOf(
-        "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+        "10.0.0.0/8", "100.64.0.0/10", "169.254.0.0/16", "172.16.0.0/12",
         "192.168.0.0/16", "224.0.0.0/4", "255.255.255.255/32",
     ).mapNotNull(Cidr::parse)
     val LAN_V6 = listOf("fc00::/7", "fe80::/10", "ff00::/8").mapNotNull(Cidr::parse)
     val ALL_V4 = Cidr.parse("0.0.0.0/0")!!
     val ALL_V6 = Cidr.parse("::/0")!!
+    private val LOOPBACK_V4 = Cidr.parse("127.0.0.0/8")!!
+
+    /** 對應 VpnService.Builder 內部的 check():loopback 位址一律被拒(IllegalArgumentException "Bad address")。 */
+    fun acceptedByBuilder(c: Cidr): Boolean = !c.address.isLoopbackAddress
+
+    /**
+     * 依 API 等級規劃路由。API 33+ 用 excludeRoute;更舊的版本只能 addRoute,自行計算補集
+     * (補集計算時順便扣掉 loopback,避免產生以 127.x 為起點的路由)。
+     */
+    fun plan(sdkInt: Int, all: Cidr, exclude: List<Cidr>): RoutePlan {
+        val ex = exclude.filter { it.bits == all.bits }
+        return if (sdkInt >= 33) {
+            RoutePlan(listOf(all), ex.filter(::acceptedByBuilder))
+        } else {
+            val withLoopback = if (all.bits == 32) ex + LOOPBACK_V4 else ex
+            RoutePlan(Cidr.subtract(all, withLoopback).filter(::acceptedByBuilder), emptyList())
+        }
+    }
 }

@@ -31,17 +31,17 @@ Kotlin/Compose UI ←── gomobile binding (sshvpn.aar) ── stats / state /
 
 ## Building
 
-Builds run on GitHub Actions (`.github/workflows/build.yml`):
+Builds run on GitHub Actions; each workflow has exactly one purpose, selected by its trigger:
 
-| Trigger | What runs |
-|---|---|
-| push / pull request | Go core tests only |
-| manual (`workflow_dispatch`) | Go tests → debug APK (artifact `SSHTunnelVPN-debug-<versionCode>`) |
-| push tag `v*` | Go tests → release APK → GitHub Release |
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `test.yml` | push to `main` / pull request (doc-only changes skipped) | Go core tests (race) + Kotlin unit tests |
+| `debug.yml` | manual (`gh workflow run debug.yml`) | Debug APK, signed with the fixed key in secret `DEBUG_KEYSTORE_BASE64` and verified |
+| `release.yml` | push tag `v*` | Release APK → GitHub Release; needs `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` |
 
-- `versionName` is fixed at `0.1.0`; `versionCode` is the workflow run number, so every build increases it.
-- Debug builds are signed with a fixed key from the secret `DEBUG_KEYSTORE_BASE64`, so new debug builds install over old ones and keep app data.
-- Release builds require `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`; the job fails without them.
+Shared setup (Go, JDK 21, Android platform/NDK, Gradle cache) lives in `.github/actions/android-setup`.
+`versionName` is fixed at `0.1.0`; `versionCode` = 100 + the workflow's run number, so every build increases it.
+The fixed debug key lets new debug builds install over old ones without losing app data.
 
 Toolchain used by CI: Go (from `core/go.mod`), JDK 21, Android platform 37, NDK 28.2.13676358.
 gomobile/gobind are pinned via the `tool` block in `core/go.mod`.

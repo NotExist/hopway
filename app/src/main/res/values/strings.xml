@@ -170,4 +170,10 @@
     <string name="exit_check_failed">Exit IP check failed: %1$s</string>
     <string name="pref_ipinfo">IP data</string>
     <string name="pref_ipinfo_summary">Country/IP from ipinfo.io. Server IPs are sent to ipinfo.io; exit IPs are queried through the tunnel.</string>
+    <string name="error_vpn_interface">Cannot create VPN interface: %1$s</string>
+    <string name="error_engine_start">Cannot start tunnel engine: %1$s</string>
+    <string name="vpn_auth_title">VPN permission not granted yet</string>
+    <string name="vpn_auth_body">Grant it now so the app appears in system VPN settings (needed for always-on VPN). Nothing connects until you press the button.</string>
+    <string name="vpn_auth_action">Grant VPN permission</string>
+    <string name="profile_connections">SSH connections ×%1$d</string>
 </resources>

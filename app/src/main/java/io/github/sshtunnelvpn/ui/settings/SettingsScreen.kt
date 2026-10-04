@@ -1,9 +1,12 @@
 package io.github.sshtunnelvpn.ui.settings
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -76,6 +79,11 @@ fun SettingsScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
     var dialog by rememberSaveable { mutableStateOf<Dialog?>(null) }
     fun set(f: (AppSettings) -> AppSettings) = scope.launch { c.settings.update(f) }
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
+    // 系統 VPN 清單只列出已授權的 App:先取得授權再開設定頁
+    val openVpnSettings = { ctx.startActivity(Intent(Settings.ACTION_VPN_SETTINGS)) }
+    val authorizeThenOpen = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (it.resultCode == Activity.RESULT_OK) openVpnSettings()
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
@@ -134,7 +142,7 @@ fun SettingsScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
                 Icons.Outlined.Fingerprint) { navigate(Route.KnownHosts) }
             PrefItem(stringResource(R.string.pref_always_on), stringResource(R.string.pref_always_on_summary),
                 Icons.Outlined.VpnLock) {
-                ctx.startActivity(Intent(Settings.ACTION_VPN_SETTINGS))
+                c.tunnel.prepare()?.let(authorizeThenOpen::launch) ?: openVpnSettings()
             }
 
             SectionHeader(stringResource(R.string.section_appearance))

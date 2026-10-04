@@ -1,0 +1,57 @@
+name: Debug APK
+
+# 只在手動觸發時建置(Actions 頁面 Run workflow,或 gh workflow run debug.yml)
+on: workflow_dispatch
+
+env:
+  # 拆分 workflow 前已發到 versionCode 15;加上基數確保持續遞增、可覆蓋安裝
+  VERSION_CODE_BASE: 100
+
+jobs:
+  apk:
+    name: Debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/android-setup
+
+      # GitHub expressions 不支援算術,在 shell 算好寫入環境變數
+      - name: Version code
+        run: echo "VERSION_CODE=$((VERSION_CODE_BASE + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+
+      # 固定 debug 金鑰:簽章不變才能覆蓋安裝、保留 App 資料(伺服器設定等)
+      - name: Debug signing key
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "::error::secret DEBUG_KEYSTORE_BASE64 is missing"; exit 1
+          fi
+          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          echo "DEBUG_KEYSTORE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          ./gradlew --stacktrace -PversionCode="$VERSION_CODE" :app:assembleDebug
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/*.apk "dist/SSHTunnelVPN-debug-0.1.0-${VERSION_CODE}.apk"
+
+      # 確認 APK 真的用固定金鑰簽章(比對公鑰 modulus),否則覆蓋安裝會失敗
+      - name: Verify signature
+        run: |
+          keytool -exportcert -keystore "$DEBUG_KEYSTORE" -storepass android -alias androiddebugkey -file "$RUNNER_TEMP/cert.der"
+          openssl x509 -inform der -in "$RUNNER_TEMP/cert.der" -noout -modulus | cut -d= -f2 > "$RUNNER_TEMP/mod.hex"
+          python3 - <<'PY'
+          import glob, os, sys
+          m = bytes.fromhex(open(os.environ["RUNNER_TEMP"] + "/mod.hex").read().strip())
+          apk = open(glob.glob("dist/*.apk")[0], "rb").read()
+          ok = m[64:128] in apk
+          print("signed with fixed debug key:", ok)
+          sys.exit(0 if ok else 1)
+          PY
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SSHTunnelVPN-debug-${{ env.VERSION_CODE }}
+          path: dist/*.apk
+          if-no-files-found: error

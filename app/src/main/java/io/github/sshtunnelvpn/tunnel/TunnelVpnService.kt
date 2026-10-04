@@ -87,7 +87,7 @@ class TunnelVpnService : VpnService() {
         val pfd = try {
             buildInterface(p, settings).establish()
         } catch (e: Exception) {
-            fail(e.message ?: e.toString())
+            fail(getString(R.string.error_vpn_interface, e.message ?: e.toString()))
             return
         }
         if (pfd == null) {
@@ -99,7 +99,7 @@ class TunnelVpnService : VpnService() {
         try {
             Sshvpn.start(pfd.detachFd().toLong(), EngineConfig.json(p, settings, TunAddress.DNS_V4), platform)
         } catch (e: Exception) {
-            fail(e.message ?: e.toString())
+            fail(getString(R.string.error_engine_start, e.message ?: e.toString()))
             return
         }
         running = true
@@ -143,12 +143,9 @@ class TunnelVpnService : VpnService() {
     }
 
     private fun addRoutes(b: Builder, all: Cidr, exclude: List<Cidr>) {
-        if (Build.VERSION.SDK_INT >= 33) {
-            b.addRoute(all.address, all.prefix)
-            exclude.forEach { b.excludeRoute(IpPrefix(it.address, it.prefix)) }
-        } else {
-            Cidr.subtract(all, exclude).forEach { b.addRoute(it.address, it.prefix) }
-        }
+        val plan = Routes.plan(Build.VERSION.SDK_INT, all, exclude)
+        plan.include.forEach { b.addRoute(it.address, it.prefix) }
+        if (Build.VERSION.SDK_INT >= 33) plan.exclude.forEach { b.excludeRoute(IpPrefix(it.address, it.prefix)) }
     }
 
     private fun isInstalled(pkg: String) = try {

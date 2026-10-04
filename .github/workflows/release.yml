@@ -1,0 +1,48 @@
+name: Release
+
+# 只在推 v* tag 時建置並發佈
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  VERSION_CODE_BASE: 100
+
+jobs:
+  release:
+    name: Release APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/android-setup
+
+      # GitHub expressions 不支援算術,在 shell 算好寫入環境變數
+      - name: Version code
+        run: echo "VERSION_CODE=$((VERSION_CODE_BASE + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+
+      - name: Release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::release keystore secrets are missing (KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD)"; exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+
+      - name: Build
+        run: |
+          ./gradlew --stacktrace -PversionCode="$VERSION_CODE" :app:assembleRelease
+          mkdir -p dist
+          cp app/build/outputs/apk/release/*.apk "dist/SSHTunnelVPN-${GITHUB_REF_NAME}.apk"
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*.apk
+          generate_release_notes: true

@@ -4,9 +4,9 @@
 
 - Repo:https://github.com/NotExist/sshtunnelvpn_android(public,branch `main`)
 - **建置一律走 GitHub Actions**(`.github/workflows/build.yml`),本地不裝 Android SDK/NDK、不跑 Gradle。
-  - push/PR 只跑 Go 測試;**debug APK 用手動觸發**(`gh workflow run build.yml`);**release 推 `v*` tag** 才建並發 Release。
-  - `versionName` 固定 0.1.0,`versionCode` = workflow run number(每次建置遞增)。
-  - debug 以固定金鑰簽章:secret `DEBUG_KEYSTORE_BASE64`(本機備份 `~/.android/sshtunnelvpn-debug.keystore`,密碼/alias 為 Android 標準 `android`/`androiddebugkey`),CI 會驗證 APK 確實用這把簽。
+  - 三個 workflow 各司其職:`test.yml`(push main/PR,文件變更不觸發;Go + Kotlin 單元測試)、`debug.yml`(只手動觸發:`gh workflow run debug.yml`)、`release.yml`(只在 `v*` tag)。共用環境在 `.github/actions/android-setup`。
+  - `versionName` 固定 0.1.0,`versionCode` = 100 + 該 workflow 的 run number(拆分前已發到 15)。
+  - debug 以固定金鑰簽章:secret `DEBUG_KEYSTORE_BASE64`(本機備份 `~/.android/sshtunnelvpn-debug.keystore`,`android`/`androiddebugkey`),debug.yml 會驗證簽章。
   - release keystore secrets 尚未建立 → 推 tag 會失敗(刻意,避免發出 debug 簽章的 release)。
 - Go core(`core/`)完成,本地 `go test -race` 6 項端到端測試全過(TCP 8×2MB 雙向、平行 SSH、DNS pipelining+快取、udpgw、SOCKS5、斷線重連、認證失敗、host key 拒絕、加密私鑰)。
 - Android app(`app/`)**CI 建置通過**,debug APK artifact 名 `SSHTunnelVPN-debug-<versionCode>`(約 27 MB)。
@@ -34,3 +34,4 @@
 - 2026-10-02:CI 修正(sdkmanager SIGPIPE、platform 套件名 `android-37.0`、M3 experimental opt-in、gomobile getter 名稱、CidrTest 最小路由數 77、abiFilters),首次 CI 全綠。
 - 2026-10-03:多伺服器路由設計定案(ipinfo.io、先只做 per-app、系統 DNS 獨立呈現);P1 完成,CI 綠。
 - 2026-10-03:建置流程調整——debug 手動觸發 + 固定 debug 金鑰(GitHub runner 的 Android user home 不是 `~/.android`,改為 Gradle 明確指定 signingConfig)、release 只在 tag、versionCode 自動遞增。
+- 2026-10-04:實機回報修正——Android 13+ `excludeRoute(127.0.0.0/8)` 觸發 Builder「Bad address」導致無法連線(路由規劃抽成 `Routes.plan` 並加回歸測試);首頁/設定先取得 VPN 授權以便出現在系統 VPN 清單;`×N` 改為「SSH 連線 ×N」;workflow 拆成 test/debug/release。

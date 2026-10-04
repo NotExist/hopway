@@ -30,7 +30,29 @@ class CidrTest {
         out.zipWithNext().forEach { (a, b) -> assertTrue(a.end < b.start) }
         for (ex in Routes.LAN_V4) for (r in out) assertTrue(r.end < ex.start || r.start > ex.end)
         // 最小 CIDR 集合大小(以 Python ipaddress.collapse_addresses 交叉驗證)
-        assertEquals(77, out.size)
+        assertEquals(74, out.size)
+    }
+
+    /** 回歸測試:Android 13+ 的 excludeRoute(127.0.0.0/8) 曾讓 Builder 丟 "Bad address"。 */
+    @Test
+    fun planNeverHandsLoopbackToBuilder() {
+        val custom = Cidr.parseList("127.0.0.1/32, 203.0.113.0/24")
+        for (sdk in listOf(26, 32, 33, 36)) {
+            for ((all, lan) in listOf(Routes.ALL_V4 to Routes.LAN_V4, Routes.ALL_V6 to Routes.LAN_V6)) {
+                val plan = Routes.plan(sdk, all, lan + custom)
+                (plan.include + plan.exclude).forEach {
+                    assertTrue("sdk $sdk: $it rejected by Builder", Routes.acceptedByBuilder(it))
+                }
+                if (sdk < 33) assertTrue(plan.exclude.isEmpty())
+            }
+        }
+        // API < 33:補集同時扣掉 loopback,最小集合 = 77(LAN + 127/8)
+        assertEquals(77, Routes.plan(32, Routes.ALL_V4, Routes.LAN_V4).include.size)
+        // API 33+:只有一條 0.0.0.0/0,排除清單不含 loopback
+        val p33 = Routes.plan(33, Routes.ALL_V4, Routes.LAN_V4 + custom)
+        assertEquals(listOf(Routes.ALL_V4), p33.include)
+        assertTrue(p33.exclude.none { it.address.isLoopbackAddress })
+        assertTrue(p33.exclude.any { it.toString() == "203.0.113.0/24" })
     }
 
     @Test

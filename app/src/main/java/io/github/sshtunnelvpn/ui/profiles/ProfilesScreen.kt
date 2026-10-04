@@ -244,6 +244,7 @@ private fun ProfileRow(
 ) {
     var menu by remember { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val connectionsLabel = stringResource(R.string.profile_connections, p.connections)
     Card(
         onClick = onSelect,
         colors = CardDefaults.cardColors(
@@ -296,7 +297,7 @@ private fun ProfileRow(
                                     AuthType.KEY_AND_PASSWORD -> stringResource(R.string.auth_key_password)
                                 },
                             )
-                            append(" · ×").append(p.connections)
+                            append(" · ").append(connectionsLabel)
                             if (p.udpgwEnabled) append(" · UDP")
                         },
                         style = MaterialTheme.typography.labelSmall, color = muted,

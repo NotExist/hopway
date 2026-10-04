@@ -170,4 +170,10 @@
     <string name="exit_check_failed">出口 IP 查詢失敗:%1$s</string>
     <string name="pref_ipinfo">IP 資料來源</string>
     <string name="pref_ipinfo_summary">國家/IP 資料來自 ipinfo.io。伺服器 IP 會送往 ipinfo.io;出口 IP 經通道查詢。</string>
+    <string name="error_vpn_interface">無法建立 VPN 介面:%1$s</string>
+    <string name="error_engine_start">無法啟動通道引擎:%1$s</string>
+    <string name="vpn_auth_title">尚未授權 VPN</string>
+    <string name="vpn_auth_body">先完成授權,App 才會出現在系統 VPN 設定中(啟用永久連線需要)。授權不會立即連線。</string>
+    <string name="vpn_auth_action">授權 VPN</string>
+    <string name="profile_connections">SSH 連線 ×%1$d</string>
 </resources>

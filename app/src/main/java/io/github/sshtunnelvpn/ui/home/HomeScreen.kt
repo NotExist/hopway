@@ -62,6 +62,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -77,6 +79,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sshtunnelvpn.R
 import io.github.sshtunnelvpn.container
@@ -120,6 +123,16 @@ fun HomeScreen(navigate: (Route) -> Unit, connectRequest: Int) {
         if (intent != null) vpnPermission.launch(intent) else c.tunnel.connect(p.id)
     }
 
+    // 回到前景時重新檢查授權(使用者可能在系統設定撤銷或授權)
+    var authorized by remember { mutableStateOf(true) }
+    LifecycleResumeEffect(Unit) {
+        authorized = c.tunnel.prepare() == null
+        onPauseOrDispose {}
+    }
+    val authorize = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        authorized = c.tunnel.prepare() == null
+    }
+
     LaunchedEffect(connectRequest) {
         if (connectRequest > 0 && !c.tunnel.isActive) connect()
     }
@@ -150,6 +163,21 @@ fun HomeScreen(navigate: (Route) -> Unit, connectRequest: Int) {
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (!authorized) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(stringResource(R.string.vpn_auth_title), style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.vpn_auth_body), style = MaterialTheme.typography.bodyMedium)
+                        FilledTonalButton(
+                            onClick = { c.tunnel.prepare()?.let(authorize::launch) },
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) { Text(stringResource(R.string.vpn_auth_action)) }
+                    }
+                }
+            }
             Spacer(Modifier.height(8.dp))
             ConnectButton(status.state, onClick = { if (c.tunnel.isActive) c.tunnel.disconnect() else connect() })
             Spacer(Modifier.height(16.dp))
