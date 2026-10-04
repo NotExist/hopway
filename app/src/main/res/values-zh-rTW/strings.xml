@@ -210,4 +210,8 @@
     <string name="backup_exported">已匯出 %1$d 台伺服器</string>
     <string name="backup_imported">已匯入:新增 %1$d、更新 %2$d(%3$d 個主機金鑰衝突,保留本機紀錄)</string>
     <string name="backup_invalid_file">不是有效的伺服器清單檔</string>
+    <string name="missing_password">需補密碼——點 ⋮ › 編輯</string>
+    <string name="missing_private_key">需補私鑰——點 ⋮ › 編輯</string>
+    <string name="missing_both">需補密碼與私鑰——點 ⋮ › 編輯</string>
+    <string name="error_missing_credentials">「%1$s」沒有儲存密碼或私鑰(例如匯入了不含帳密的備份)。請編輯伺服器補上。</string>
 </resources>

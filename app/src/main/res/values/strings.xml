@@ -210,4 +210,8 @@
     <string name="backup_exported">Exported %1$d servers</string>
     <string name="backup_imported">Imported: %1$d added, %2$d updated (%3$d host key conflicts kept as local)</string>
     <string name="backup_invalid_file">Not a valid server list file</string>
+    <string name="missing_password">Password needed — tap ⋮ › Edit</string>
+    <string name="missing_private_key">Private key needed — tap ⋮ › Edit</string>
+    <string name="missing_both">Password and private key needed — tap ⋮ › Edit</string>
+    <string name="error_missing_credentials">“%1$s” has no saved password or private key (e.g. imported without credentials). Edit the server to add them.</string>
 </resources>

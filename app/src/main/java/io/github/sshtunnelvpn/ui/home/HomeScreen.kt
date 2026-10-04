@@ -91,6 +91,7 @@ import io.github.sshtunnelvpn.tunnel.TunnelState
 import io.github.sshtunnelvpn.tunnel.TunnelStatus
 import io.github.sshtunnelvpn.ui.Route
 import io.github.sshtunnelvpn.ui.components.SpeedChart
+import io.github.sshtunnelvpn.ui.profiles.MissingCredentialsWarning
 import io.github.sshtunnelvpn.ui.profiles.placeLabel
 import io.github.sshtunnelvpn.ui.formatBytes
 import io.github.sshtunnelvpn.ui.formatDuration
@@ -328,6 +329,7 @@ private fun ProfileCard(p: Profile?, exit: io.github.sshtunnelvpn.data.IpInfo?, 
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    MissingCredentialsWarning(p.missingCredentials)
                     exit?.let {
                         Text(
                             listOfNotNull(stringResource(R.string.label_exit), placeLabel(it), it.ip).joinToString("  "),

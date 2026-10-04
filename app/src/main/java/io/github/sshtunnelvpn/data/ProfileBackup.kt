@@ -146,6 +146,12 @@ object ProfileBackup {
         return MergeResult(order.map { byId.getValue(it) }, added, updated, hosts, conflicts)
     }
 
+    /**
+     * 匯入後該選哪台:目前選取的仍存在就維持;沒有選取、或選取的已不存在(例如清空後重新匯入)則選第一台。
+     */
+    fun selectionAfterImport(current: String?, profiles: List<Profile>): String? =
+        current?.takeIf { id -> profiles.any { it.id == id } } ?: profiles.firstOrNull()?.id
+
     private fun deriveKey(passphrase: CharArray, salt: ByteArray, iterations: Int): SecretKeySpec {
         val spec = PBEKeySpec(passphrase, salt, iterations, 256)
         try {

@@ -75,6 +75,11 @@ class TunnelVpnService : VpnService() {
             fail(getString(R.string.error_no_profile))
             return
         }
+        // 缺帳密(例如匯入不含帳密的備份)時直接說明,不必等伺服器回認證失敗
+        if (p.missingCredentials.isNotEmpty()) {
+            fail(getString(R.string.error_missing_credentials, p.displayName))
+            return
+        }
         if (id != settings.selectedProfileId) {
             settingsRepo.update { it.copy(selectedProfileId = id) }
             settings = settingsRepo.current()

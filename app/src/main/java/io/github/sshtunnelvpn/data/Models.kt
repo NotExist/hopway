@@ -6,6 +6,8 @@ import java.util.UUID
 @Serializable
 enum class AuthType { PASSWORD, KEY, KEY_AND_PASSWORD }
 
+enum class Credential { PASSWORD, PRIVATE_KEY }
+
 @Serializable
 data class Profile(
     val id: String = UUID.randomUUID().toString(),
@@ -24,6 +26,13 @@ data class Profile(
     val udpgwAddress: String = "127.0.0.1:7300",
 ) {
     val displayName: String get() = name.ifBlank { "$username@$host" }
+
+    /** 依認證方式缺少的帳密(例如匯入不含帳密的備份後);空集合表示齊全。 */
+    val missingCredentials: Set<Credential>
+        get() = buildSet {
+            if (authType != AuthType.KEY && password.isEmpty()) add(Credential.PASSWORD)
+            if (authType != AuthType.PASSWORD && privateKey.isBlank()) add(Credential.PRIVATE_KEY)
+        }
     val endpoint: String get() = if (port == 22) "$username@$host" else "$username@$host:$port"
 }
 

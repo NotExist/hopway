@@ -38,6 +38,7 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -82,6 +83,7 @@ import io.github.sshtunnelvpn.R
 import io.github.sshtunnelvpn.container
 import io.github.sshtunnelvpn.data.AppSettings
 import io.github.sshtunnelvpn.data.AuthType
+import io.github.sshtunnelvpn.data.Credential
 import io.github.sshtunnelvpn.data.IpInfo
 import io.github.sshtunnelvpn.data.Profile
 import io.github.sshtunnelvpn.data.flagEmoji
@@ -330,6 +332,7 @@ private fun ProfileRow(
             Column(Modifier.weight(1f)) {
                 Text(p.displayName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(p.endpoint, style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                MissingCredentialsWarning(p.missingCredentials)
                 // 入口:實際連線用的 IP 與其國家
                 Text(
                     listOfNotNull(
@@ -511,4 +514,22 @@ private fun ImportPassphraseDialog(wrong: Boolean, busy: Boolean, onDismiss: () 
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+/** 缺帳密提示(例如匯入不含帳密的備份後),點「編輯」補上。 */
+@Composable
+fun MissingCredentialsWarning(missing: Set<Credential>, modifier: Modifier = Modifier) {
+    if (missing.isEmpty()) return
+    val text = stringResource(
+        when {
+            missing.size == 2 -> R.string.missing_both
+            Credential.PASSWORD in missing -> R.string.missing_password
+            else -> R.string.missing_private_key
+        },
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.padding(vertical = 2.dp)) {
+        Icon(Icons.Outlined.WarningAmber, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
+        Spacer(Modifier.width(4.dp))
+        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+    }
 }

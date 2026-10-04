@@ -217,9 +217,9 @@ class ProfilesViewModel(private val c: AppContainer) : ViewModel() {
         val r = ProfileBackup.merge(c.profiles.profiles.first(), c.knownHosts.snapshot(), payload)
         c.profiles.replaceAll(r.profiles)
         c.knownHosts.replaceAll(r.knownHosts)
-        if (c.settings.current().selectedProfileId == null) {
-            r.profiles.firstOrNull()?.let { p -> c.settings.update { it.copy(selectedProfileId = p.id) } }
-        }
+        val current = c.settings.current().selectedProfileId
+        val pick = ProfileBackup.selectionAfterImport(current, r.profiles)
+        if (pick != current) c.settings.update { it.copy(selectedProfileId = pick) }
         _message.value = UiMessage.Res(R.string.backup_imported, listOf(r.added, r.updated, r.hostKeyConflicts))
     }
 

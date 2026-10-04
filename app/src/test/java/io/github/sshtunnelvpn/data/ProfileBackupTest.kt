@@ -68,4 +68,47 @@ class ProfileBackupTest {
         assertEquals(1, r.hostKeyConflicts)
         assertTrue(r.knownHosts.containsKey(unrelated.key))
     }
+
+    @Test
+    fun importingSameFileTwiceIsIdempotent() {
+        val payload = (ProfileBackup.parse(ProfileBackup.export(listOf(a, b), listOf(hostA), null)) as ProfileBackup.Parsed.Plain).payload
+        val first = ProfileBackup.merge(emptyList(), emptyMap(), payload)
+        assertEquals(2, first.added)
+        val second = ProfileBackup.merge(first.profiles, first.knownHosts, payload)
+        assertEquals(0, second.added)
+        assertEquals(2, second.updated)
+        assertEquals(0, second.hostKeyConflicts)
+        assertEquals(first.profiles, second.profiles)
+        assertEquals(first.knownHosts, second.knownHosts)
+    }
+
+    @Test
+    fun clearedThenPlainImportHasMissingCredentials() {
+        val payload = (ProfileBackup.parse(ProfileBackup.export(listOf(a, b), emptyList(), null)) as ProfileBackup.Parsed.Plain).payload
+        val r = ProfileBackup.merge(emptyList(), emptyMap(), payload)
+        assertEquals(setOf(Credential.PASSWORD), r.profiles.first { it.id == "a" }.missingCredentials)
+        assertEquals(setOf(Credential.PRIVATE_KEY), r.profiles.first { it.id == "b" }.missingCredentials)
+        // 加密匯入則帳密齊全
+        val enc = ProfileBackup.export(listOf(a, b), emptyList(), "correct horse".toCharArray(), fast)
+        val full = ProfileBackup.decrypt((ProfileBackup.parse(enc) as ProfileBackup.Parsed.Encrypted).blob, "correct horse".toCharArray())
+        assertTrue(full.profiles.all { it.missingCredentials.isEmpty() })
+    }
+
+    @Test
+    fun missingCredentialsByAuthType() {
+        val both = Profile(authType = AuthType.KEY_AND_PASSWORD)
+        assertEquals(setOf(Credential.PASSWORD, Credential.PRIVATE_KEY), both.missingCredentials)
+        assertTrue(a.missingCredentials.isEmpty())
+        // 金鑰模式不需要密碼
+        assertTrue(b.missingCredentials.isEmpty())
+    }
+
+    @Test
+    fun selectionAfterImport() {
+        val list = listOf(a, b)
+        assertEquals("existing selection kept", "b", ProfileBackup.selectionAfterImport("b", list))
+        assertEquals("no selection -> first", "a", ProfileBackup.selectionAfterImport(null, list))
+        assertEquals("stale selection -> first", "a", ProfileBackup.selectionAfterImport("deleted", list))
+        assertEquals(null, ProfileBackup.selectionAfterImport(null, emptyList()))
+    }
 }
