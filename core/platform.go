@@ -37,6 +37,9 @@ type Platform interface {
 	// OnServerIP 回報 SSH 伺服器的 IPv4 / IPv6 對外能力(連上後探測一次):0 無法判定 / 1 有 / 2 沒有。
 	OnServerIP(ipv4 int, ipv6 int)
 	Log(level int, message string)
+	// ConnectionOwner 查詢連線屬於哪個 App(僅在 Config.LogOwners 開啟時呼叫,偵錯用)。
+	// proto 為 6(TCP)或 17(UDP);src 為 App 端位址、dst 為目的地。回傳人可讀的描述(例如「uid 10123 com.example」)。
+	ConnectionOwner(proto int, srcIP string, srcPort int, dstIP string, dstPort int) string
 }
 
 type logger struct {

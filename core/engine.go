@@ -28,7 +28,7 @@ type engine struct {
 	socks  *socksServer
 	h      *handler
 	link   stack.LinkEndpoint // 測試用:取代 TUN fd 的鏈路
-	bg     sync.WaitGroup     // 引擎自己的背景 goroutine(IPv6 探測等),stop 時等它們結束
+	bg     bgGroup            // 引擎自己的背景 goroutine(協定探測、連線歸屬查詢等),stop 時等它們結束
 	stack  *stack.Stack
 	dev    interface{ Close() }
 	st     counters
@@ -92,6 +92,7 @@ func (e *engine) run(tunFd int) error {
 	}
 	h := &handler{ctx: ctx, pool: e.pool, dns: e.dns, udpgw: e.udpgw, vdns: vdns, log: e.log, st: &e.st}
 	e.dns.unsupported = h.unsupported
+	h.logOwners, h.plat, h.bg = e.cfg.LogOwners, e.plat, &e.bg
 
 	var dev stack.LinkEndpoint
 	switch {
@@ -113,11 +114,7 @@ func (e *engine) run(tunFd int) error {
 		e.stack = s
 	}
 	e.h = h
-	e.bg.Add(1)
-	go func() {
-		defer e.bg.Done()
-		e.probeServer(ctx, h)
-	}()
+	e.bg.Go(func() { e.probeServer(ctx, h) })
 
 	if e.cfg.SocksListen != "" {
 		s, err := startSocks(e.cfg.SocksListen, e.pool, &e.st, e.log)
@@ -164,7 +161,7 @@ func (e *engine) stop() {
 	if e.pool != nil {
 		e.pool.close()
 	}
-	e.bg.Wait() // 確保停止後不再有任何 callback 進到平台端
+	e.bg.Close() // 確保停止後不再有任何 callback 進到平台端
 	e.log.infof("engine stopped")
 }
 
@@ -349,4 +346,34 @@ func currentEngine() *engine {
 	mu.Lock()
 	defer mu.Unlock()
 	return cur
+}
+
+// bgGroup 追蹤引擎的背景 goroutine:Close 之後不再啟動新的,並等既有的結束。
+type bgGroup struct {
+	mu     sync.Mutex
+	wg     sync.WaitGroup
+	closed bool
+}
+
+// Go 啟動 f;群組已關閉則不執行並回傳 false。
+func (g *bgGroup) Go(f func()) bool {
+	g.mu.Lock()
+	if g.closed {
+		g.mu.Unlock()
+		return false
+	}
+	g.wg.Add(1)
+	g.mu.Unlock()
+	go func() {
+		defer g.wg.Done()
+		f()
+	}()
+	return true
+}
+
+func (g *bgGroup) Close() {
+	g.mu.Lock()
+	g.closed = true
+	g.mu.Unlock()
+	g.wg.Wait()
 }

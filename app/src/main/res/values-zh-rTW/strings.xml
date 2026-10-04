@@ -252,4 +252,6 @@
     <string name="stat_tcp_active">TCP 使用中</string>
     <string name="stat_tcp_detail">使用中 %1$d · 本次連線累計 %2$d</string>
     <string name="stat_tcp_help">目前正在轉送的 TCP 連線數。數字異常地高,代表有 App 正在大量開連線。</string>
+    <string name="pref_log_owners">記錄連線歸屬(偵錯)</string>
+    <string name="pref_log_owners_summary">在日誌記錄每條新連線(含 DNS 查詢)是哪個 App 開的(Android 10 以上)。會產生大量日誌,用完請關閉。下次連線時生效。</string>
 </resources>

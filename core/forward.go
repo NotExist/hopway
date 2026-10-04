@@ -38,6 +38,7 @@ func (h *handler) installForwarders(s *stack.Stack) {
 func (h *handler) forwardTCP(r *tcp.ForwarderRequest) {
 	id := r.ID()
 	dst := toAddrPort(id.LocalAddress, id.LocalPort)
+	h.logOwner(protoTCP, id, dnsKind(dst.Port()))
 	target := dst.String()
 	if dst.Addr() == h.vdns {
 		if dst.Port() != 53 {
@@ -90,10 +91,13 @@ func (h *handler) forwardUDP(r *udp.ForwarderRequest) bool {
 	var serve func(net.Conn)
 	switch {
 	case dst.Port() == 53:
+		h.logOwner(protoUDP, id, "DNS")
 		serve = h.handleDNS
 	case h.udpgw != nil && dst.Addr() != h.vdns && !h.unsupported(dst.Addr()):
+		h.logOwner(protoUDP, id, "")
 		serve = func(c net.Conn) { h.handleUDPGW(c, dst) }
 	default:
+		h.logOwner(protoUDP, id, "dropped")
 		h.st.udpDropped.Add(1)
 		h.log.debugf("udp %s dropped (no udpgw)", dst)
 		return false // → ICMP port unreachable
@@ -143,4 +147,11 @@ func describeDialError(err error) string {
 	default:
 		return err.Error()
 	}
+}
+
+func dnsKind(port uint16) string {
+	if port == 53 {
+		return "DNS"
+	}
+	return ""
 }

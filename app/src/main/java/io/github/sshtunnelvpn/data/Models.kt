@@ -80,6 +80,8 @@ data class AppSettings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val logLevel: Int = 1,
+    /** 偵錯:在日誌記錄每條新連線(含 DNS)屬於哪個 App,供分 App 路由驗證。 */
+    val logConnectionOwners: Boolean = false,
 )
 
 @Serializable

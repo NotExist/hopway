@@ -37,6 +37,10 @@ type handler struct {
 	// 伺服器的 IPv4 / IPv6 對外能力:famUnknown / famYes / famNo(由 probeServer 設定)
 	ipv4 atomic.Int32
 	ipv6 atomic.Int32
+	// 連線歸屬偵錯(見 owner.go)
+	logOwners bool
+	plat      Platform
+	bg        *bgGroup
 }
 
 type dialer interface {

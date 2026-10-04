@@ -348,3 +348,47 @@ func closedPortNum(t *testing.T) string {
 	_, p, _ := net.SplitHostPort(closedPort(t))
 	return p
 }
+
+// 連線歸屬偵錯:開啟 logOwners 時,DNS(UDP 53)與 TCP 連線都會以 App 端 → 目的地的位址向平台查詢擁有者。
+func TestLogConnectionOwners(t *testing.T) {
+	echo := startEchoServer(t)
+	app, plat := startEngine(t, echo, echo, map[string]any{"logOwners": true})
+	waitServerIP(t, plat)
+
+	uc, err := gonet.DialUDP(app, nil, &tcpip.FullAddress{
+		NIC: 1, Addr: tcpip.AddrFrom4([4]byte{10, 0, 0, 53}), Port: 53,
+	}, ipv4.ProtocolNumber)
+	if err != nil {
+		t.Fatal(err)
+	}
+	qb, _ := (&dnsmessage.Message{
+		Header:    dnsmessage.Header{ID: 5, RecursionDesired: true},
+		Questions: []dnsmessage.Question{{Name: dnsmessage.MustNewName("example.com."), Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET}},
+	}).Pack()
+	uc.Write(qb)
+	uc.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, err := gonet.DialContextTCP(ctx, app, tcpip.FullAddress{
+		NIC: 1, Addr: tcpip.AddrFrom4([4]byte{198, 51, 100, 7}), Port: 80,
+	}, ipv4.ProtocolNumber)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Close()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		plat.mu.Lock()
+		got := strings.Join(plat.owners, " | ")
+		plat.mu.Unlock()
+		if strings.Contains(got, "17 10.0.0.2:") && strings.Contains(got, ">10.0.0.53:53") &&
+			strings.Contains(got, "6 10.0.0.2:") && strings.Contains(got, ">198.51.100.7:80") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("owner lookups not made: %s", got)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}

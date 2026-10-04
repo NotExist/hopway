@@ -343,6 +343,32 @@ class TunnelVpnService : VpnService() {
         }
     }
 
+    private val uidLabels = java.util.concurrent.ConcurrentHashMap<Int, String>()
+
+    /**
+     * 連線歸屬偵錯:以 getConnectionOwnerUid(Android 10+,僅作用中的 VPN App 可呼叫)查出連線所屬 UID,
+     * 再轉成套件名稱。src 為 App 端位址、dst 為目的地,與 VPN 介面上看到的封包一致。
+     */
+    private fun connectionOwner(proto: Int, srcIP: String, srcPort: Int, dstIP: String, dstPort: Int): String {
+        if (Build.VERSION.SDK_INT < 29) return "unsupported (Android < 10)"
+        val uid = try {
+            getSystemService(ConnectivityManager::class.java).getConnectionOwnerUid(
+                proto,
+                java.net.InetSocketAddress(java.net.InetAddress.getByName(srcIP), srcPort),
+                java.net.InetSocketAddress(java.net.InetAddress.getByName(dstIP), dstPort),
+            )
+        } catch (e: Exception) {
+            return "error: ${e.message}"
+        }
+        if (uid == android.os.Process.INVALID_UID) return "unknown (no matching socket)"
+        val label = uidLabels.getOrPut(uid) {
+            packageManager.getPackagesForUid(uid)?.joinToString(",")
+                ?: packageManager.getNameForUid(uid)
+                ?: "?"
+        }
+        return "uid $uid ($label)"
+    }
+
     private inner class ServicePlatform : BasePlatform(
         container.knownHosts,
         persistHostKeys = true,
@@ -352,6 +378,9 @@ class TunnelVpnService : VpnService() {
         override fun protect(fd: Long): Boolean = this@TunnelVpnService.protect(fd.toInt())
 
         override fun onServerIP(ipv4: Long, ipv6: Long) = onServerIp(familyOf(ipv4), familyOf(ipv6))
+
+        override fun connectionOwner(proto: Long, srcIP: String, srcPort: Long, dstIP: String, dstPort: Long): String =
+            this@TunnelVpnService.connectionOwner(proto.toInt(), srcIP, srcPort.toInt(), dstIP, dstPort.toInt())
 
         override fun onState(state: Long, message: String) {
             when (state.toInt()) {

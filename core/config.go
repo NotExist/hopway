@@ -42,6 +42,8 @@ type Config struct {
 	SocksListen string `json:"socksListen,omitempty"`
 
 	LogLevel int `json:"logLevel,omitempty"`
+	// LogOwners 開啟時記錄每條新連線屬於哪個 App(偵錯用,見 owner.go)。
+	LogOwners bool `json:"logOwners,omitempty"`
 
 	// TestConnection 專用:非空時於測試連線後經通道 GET 此 URL(查出口 IP)。
 	// ExitCheckURL 給 IPv4(例如 https://ipinfo.io/json),ExitCheckURL6 給 IPv6(例如 https://v6.ipinfo.io/json)。

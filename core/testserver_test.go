@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -256,6 +257,7 @@ type testPlatform struct {
 	rejectHK bool
 	stateCh  chan int
 	ipCh     chan [2]int
+	owners   []string
 }
 
 func newTestPlatform(t *testing.T) *testPlatform {
@@ -279,6 +281,12 @@ func (p *testPlatform) OnState(s int, msg string) {
 }
 func (p *testPlatform) Log(level int, msg string) { p.t.Logf("[%d] %s", level, msg) }
 func (p *testPlatform) OnServerIP(v4, v6 int)     { p.ipCh <- [2]int{v4, v6} }
+func (p *testPlatform) ConnectionOwner(proto int, sip string, sport int, dip string, dport int) string {
+	p.mu.Lock()
+	p.owners = append(p.owners, fmt.Sprintf("%d %s:%d>%s:%d", proto, sip, sport, dip, dport))
+	p.mu.Unlock()
+	return "uid 10001 com.example.test"
+}
 
 func (p *testPlatform) waitState(t *testing.T, want int, d time.Duration) string {
 	t.Helper()

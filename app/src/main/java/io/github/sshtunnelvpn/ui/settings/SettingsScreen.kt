@@ -160,6 +160,8 @@ fun SettingsScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
             PrefItem(stringResource(R.string.pref_log_level), logLevelLabel(s.logLevel), Icons.Outlined.BugReport) {
                 dialog = Dialog.LOG_LEVEL
             }
+            SwitchPref(stringResource(R.string.pref_log_owners), stringResource(R.string.pref_log_owners_summary),
+                Icons.Outlined.Fingerprint, s.logConnectionOwners) { v -> set { it.copy(logConnectionOwners = v) } }
             PrefItem(
                 stringResource(R.string.pref_version),
                 buildString {

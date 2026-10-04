@@ -24,6 +24,7 @@
 
 ## 下一步
 
+1. **P2 前置驗證進行中**:設定 → 關於 →「記錄連線歸屬(偵錯)」開啟後重連,日誌會出現 `owner DNS udp ... : uid N (套件)`,用來確認系統代發的 DNS 歸到哪個 UID。
 1. 實機測試:連線、切換網路自動重連、分 App 代理、QS 磚、永久連線 VPN、host key 變更對話框、P1 的延遲/出口顯示;**順便驗證 `getConnectionOwnerUid` 對 DNS 的歸屬**(P2 前置)。
 2. P2:引擎多出口 + per-app 指定(伺服器/直連/封鎖)、路由熱更新、per-app 流量統計(含「系統 DNS」獨立一列)。
 3. 正式簽章:設定 repo secrets `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`,推 `v*` tag 自動發 Release。
@@ -42,3 +43,4 @@
 - 2026-10-04:relay half-close 改為閒置逾時(原本一方 half-close 後另一方向套固定 60 秒期限,長下載會被截斷),加回歸測試。
 - 2026-10-04:缺帳密標記(清單/首頁顯示「需補密碼/私鑰」,連線前即提示);匯入後選取邏輯修正(選取的伺服器不存在時改選第一台);補匯入兩次冪等、清空後匯入等單元測試。尚未建置 APK(user 指示併入下次建置)。
 - 2026-10-04:不假設 IPv4 存在——Happy Eyeballs 連伺服器、伺服器 IPv4/IPv6 對稱探測(拒絕不支援協定、過濾 A/AAAA)、DNS 上游自動補另一協定。首頁新增「對外位址」(Cloudflare trace 當下查詢,經 VPN/本機直連 × IPv4/IPv6)、伺服器卡片顯示延遲、數據格精簡為 4 格且可點開看說明;伺服器長按→連線診斷頁(兩份 ipinfo 原始 JSON、SSH 資訊、即時統計)。發現 ipinfo.io 只有 IPv4、v6.ipinfo.io 只有 IPv6。
+- 2026-10-04:新增連線歸屬偵錯日誌(Go `Platform.ConnectionOwner`,Kotlin 以 `getConnectionOwnerUid` 實作,設定開關預設關閉);引擎背景 goroutine 統一由 bgGroup 管理,停止後不再回呼。

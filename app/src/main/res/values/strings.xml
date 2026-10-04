@@ -252,4 +252,6 @@
     <string name="stat_tcp_active">TCP active</string>
     <string name="stat_tcp_detail">%1$d active · %2$d total since connecting</string>
     <string name="stat_tcp_help">TCP connections currently relayed. A very high number means some app is opening many connections.</string>
+    <string name="pref_log_owners">Log connection owners (debug)</string>
+    <string name="pref_log_owners_summary">Log which app opened each new connection, including DNS lookups (Android 10+). Produces a lot of log lines — turn off when done. Takes effect on the next connection.</string>
 </resources>

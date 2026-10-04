@@ -49,6 +49,7 @@ object EngineConfig {
             put("dnsUpstream", s.dnsUpstream.trim())
             put("dnsCache", s.dnsCache)
             put("logLevel", s.logLevel)
+            put("logOwners", s.logConnectionOwners)
             if (s.socksEnabled) {
                 put("socksListen", "${if (s.socksAllowLan) "0.0.0.0" else "127.0.0.1"}:${s.socksPort}")
             }
@@ -96,6 +97,8 @@ open class BasePlatform(
     override fun onState(state: Long, message: String) {}
 
     override fun onServerIP(ipv4: Long, ipv6: Long) {}
+
+    override fun connectionOwner(proto: Long, srcIP: String, srcPort: Long, dstIP: String, dstPort: Long): String = 
 
     override fun log(level: Long, message: String) {
         logs?.add(level.toInt(), message)
