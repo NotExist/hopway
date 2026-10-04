@@ -365,3 +365,34 @@ func adjustTTL(resp []byte, expires time.Time) []byte {
 	}
 	return out
 }
+
+func isAAAAQuery(q []byte) bool {
+	var p dnsmessage.Parser
+	if _, err := p.Start(q); err != nil {
+		return false
+	}
+	qs, err := p.AllQuestions()
+	return err == nil && len(qs) == 1 && qs[0].Type == dnsmessage.TypeAAAA
+}
+
+// emptyAnswer 產生「名稱存在但沒有此類型記錄」的回應(NOERROR、無 answer),
+// 與真正沒有 AAAA 的網域相同,App 會直接改用 A 記錄。
+func emptyAnswer(q []byte) []byte {
+	var p dnsmessage.Parser
+	h, err := p.Start(q)
+	if err != nil {
+		return nil
+	}
+	qs, err := p.AllQuestions()
+	if err != nil {
+		return nil
+	}
+	h.Response = true
+	h.RecursionAvailable = true
+	h.RCode = dnsmessage.RCodeSuccess
+	out, err := (&dnsmessage.Message{Header: h, Questions: qs}).Pack()
+	if err != nil {
+		return nil
+	}
+	return out
+}

@@ -18,6 +18,7 @@ import io.github.sshtunnelvpn.container
 import io.github.sshtunnelvpn.data.AppMode
 import io.github.sshtunnelvpn.data.AppSettings
 import io.github.sshtunnelvpn.data.IpInfoRepository
+import io.github.sshtunnelvpn.data.Ipv6Mode
 import io.github.sshtunnelvpn.data.Profile
 import io.github.sshtunnelvpn.sshvpn.Sshvpn
 import io.github.sshtunnelvpn.ui.MainActivity
@@ -39,6 +40,8 @@ class TunnelVpnService : VpnService() {
     private var profile: Profile? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var lastNotificationText: String? = null
+    /** 目前 VPN 介面是否帶 IPv6 位址(IPv6 經通道);false 表示 IPv6 被封鎖。 */
+    private var interfaceV6 = false
 
     private val controller get() = container.tunnel
     private val logs get() = container.logs
@@ -84,8 +87,16 @@ class TunnelVpnService : VpnService() {
         controller.update { TunnelStatus(TunnelState.CONNECTING, p.id, p.displayName) }
         logs.add(LogBuffer.INFO, "Connecting to ${p.endpoint}")
 
+        // IPv6:見 Ipv6Mode 說明。AUTO 依上次對這台伺服器的實測結果,未知時先封鎖(安全側)
+        val v6 = when (settings.ipv6Mode) {
+            Ipv6Mode.TUNNEL -> true
+            Ipv6Mode.BLOCK -> false
+            Ipv6Mode.AUTO -> container.ipInfo.ipv6Capable(p.id) == true
+        }
+        interfaceV6 = v6
+        controller.update { it.copy(ipv6Routed = v6) }
         val pfd = try {
-            buildInterface(p, settings).establish()
+            buildInterface(p, settings, v6).establish()
         } catch (e: Exception) {
             fail(getString(R.string.error_vpn_interface, e.message ?: e.toString()))
             return
@@ -107,7 +118,7 @@ class TunnelVpnService : VpnService() {
         startStatsLoop()
     }
 
-    private fun buildInterface(p: Profile, s: AppSettings): Builder {
+    private fun buildInterface(p: Profile, s: AppSettings, v6Address: Boolean): Builder {
         val b = Builder()
             .setSession(p.displayName)
             .setMtu(s.mtu)
@@ -122,10 +133,11 @@ class TunnelVpnService : VpnService() {
         val exclude4 = (if (s.bypassLan) Routes.LAN_V4 else emptyList()) + custom.filter { it.bits == 32 }
         val exclude6 = (if (s.bypassLan) Routes.LAN_V6 else emptyList()) + custom.filter { it.bits == 128 }
         addRoutes(b, Routes.ALL_V4, exclude4)
-        if (s.ipv6) {
-            b.addAddress(TunAddress.V6, TunAddress.V6_PREFIX)
-            addRoutes(b, Routes.ALL_V6, exclude6)
-        }
+        // IPv6 路由一律接管,避免 IPv6 從實體網路繞過 VPN 洩漏。
+        // 只有要讓 IPv6 經通道時才給介面 IPv6 位址;沒有位址時,App 的 IPv6 連線會立即失敗並改用 IPv4,
+        // 系統 DNS 也不會再查 AAAA(伺服器沒有 IPv6 時,這比「連上再失敗」快且穩定)。
+        addRoutes(b, Routes.ALL_V6, exclude6)
+        if (v6Address) b.addAddress(TunAddress.V6, TunAddress.V6_PREFIX)
 
         val self = packageName
         when (s.appMode) {
@@ -200,6 +212,7 @@ class TunnelVpnService : VpnService() {
                 val stats = TrafficStats(
                     rxBytes = st.rxBytes, txBytes = st.txBytes, rxRate = rxRate, txRate = txRate,
                     tcpActive = st.tcpActive, tcpTotal = st.tcpTotal, udpActive = st.udpActive,
+                    udpDropped = st.udpDropped, dialFailures = st.dialFailures, serverIpv6 = st.getIPv6().toInt(),
                     dnsQueries = st.dnsQueries, dnsCacheHits = st.dnsCacheHits, rttMillis = st.rttMillis,
                     sshLive = st.sshLive, sshTotal = st.sshTotal, uptimeMillis = st.uptimeMillis,
                     serverVersion = st.serverVersion,
@@ -300,6 +313,30 @@ class TunnelVpnService : VpnService() {
         }
     }
 
+    /**
+     * 引擎回報伺服器的 IPv6 能力後:記住結果(按伺服器),AUTO 模式下若與目前介面設定不符,
+     * 重建一次 VPN 介面(新介面建立後系統會無縫接手,SSH 會重新連線一次)。之後同一台伺服器直接用記住的結果。
+     */
+    private fun onServerIpv6(available: Boolean) {
+        val p = profile ?: return
+        container.appScope.launch {
+            container.ipInfo.recordIpv6(p.id, available)
+            logs.add(
+                LogBuffer.INFO,
+                if (available) "Server has IPv6 connectivity" else "Server has no IPv6 connectivity",
+            )
+            val mode = container.settings.current().ipv6Mode
+            if (mode == Ipv6Mode.AUTO && available != interfaceV6) {
+                logs.add(
+                    LogBuffer.INFO,
+                    if (available) "IPv6 auto: enabling IPv6 through tunnel, re-establishing VPN"
+                    else "IPv6 auto: blocking IPv6 (apps use IPv4), re-establishing VPN",
+                )
+                scope.launch { if (running && profile?.id == p.id) startTunnel(p.id) }
+            }
+        }
+    }
+
     private inner class ServicePlatform : BasePlatform(
         container.knownHosts,
         persistHostKeys = true,
@@ -307,6 +344,8 @@ class TunnelVpnService : VpnService() {
         logs = container.logs,
     ) {
         override fun protect(fd: Long): Boolean = this@TunnelVpnService.protect(fd.toInt())
+
+        override fun onIPv6(available: Boolean) = onServerIpv6(available)
 
         override fun onState(state: Long, message: String) {
             when (state.toInt()) {

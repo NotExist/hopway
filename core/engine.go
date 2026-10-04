@@ -13,9 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xjasonlyu/tun2socks/v2/core"
 	"github.com/xjasonlyu/tun2socks/v2/core/device/fdbased"
-	"github.com/xjasonlyu/tun2socks/v2/core/option"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
 
@@ -28,6 +26,8 @@ type engine struct {
 	dns    *dnsClient
 	udpgw  *udpgwClient
 	socks  *socksServer
+	h      *handler
+	bg     sync.WaitGroup // 引擎自己的背景 goroutine(IPv6 探測等),stop 時等它們結束
 	stack  *stack.Stack
 	dev    interface{ Close() }
 	st     counters
@@ -92,20 +92,18 @@ func (e *engine) run(tunFd int) error {
 			return fmt.Errorf("open tun: %w", err)
 		}
 		e.dev = dev
-		s, err := core.CreateStack(&core.Config{
-			LinkEndpoint:     dev,
-			TransportHandler: h,
-			Options: []option.Option{
-				// SSH 本身已有可靠傳輸,netstack 端放大 buffer 換吞吐
-				option.WithTCPReceiveBufferSize(4 << 20),
-				option.WithTCPSendBufferSize(4 << 20),
-			},
-		})
+		s, err := createStack(dev, h)
 		if err != nil {
 			return fmt.Errorf("create stack: %w", err)
 		}
 		e.stack = s
 	}
+	e.h = h
+	e.bg.Add(1)
+	go func() {
+		defer e.bg.Done()
+		e.probeIPv6(ctx, h)
+	}()
 
 	if e.cfg.SocksListen != "" {
 		s, err := startSocks(e.cfg.SocksListen, e.pool, &e.st, e.log)
@@ -152,6 +150,7 @@ func (e *engine) stop() {
 	if e.pool != nil {
 		e.pool.close()
 	}
+	e.bg.Wait() // 確保停止後不再有任何 callback 進到平台端
 	e.log.infof("engine stopped")
 }
 
@@ -197,21 +196,24 @@ func SetLogLevel(level int) {
 
 // Stats 是統計快照(gomobile 會產生對應 Java class)。
 type Stats struct {
-	State          int
-	Message        string
-	TxBytes        int64
-	RxBytes        int64
-	TCPActive      int64
-	TCPTotal       int64
-	UDPActive      int64
-	DialFailures   int64
-	DNSQueries     int64
-	DNSCacheHits   int64
-	RTTMillis      int64
-	SSHLive        int64
-	SSHTotal       int64
-	UptimeMillis   int64
-	ServerVersion  string
+	State        int
+	Message      string
+	TxBytes      int64
+	RxBytes      int64
+	TCPActive    int64
+	TCPTotal     int64
+	UDPActive    int64
+	UDPDropped   int64
+	DialFailures int64
+	// IPv6 為伺服器的 IPv6 能力:0 偵測中 / 1 有 / 2 沒有
+	IPv6          int64
+	DNSQueries    int64
+	DNSCacheHits  int64
+	RTTMillis     int64
+	SSHLive       int64
+	SSHTotal      int64
+	UptimeMillis  int64
+	ServerVersion string
 }
 
 // GetStats 回傳目前統計;引擎未執行時回傳 nil。
@@ -231,6 +233,8 @@ func GetStats() *Stats {
 	s.TCPTotal = e.st.tcpTotal.Load()
 	s.UDPActive = e.st.udpActive.Load()
 	s.DialFailures = e.st.dialFailures.Load()
+	s.UDPDropped = e.st.udpDropped.Load()
+	s.IPv6 = int64(e.h.ipv6.Load())
 	s.DNSQueries = e.dns.queries.Load()
 	s.DNSCacheHits = e.dns.hits.Load()
 	s.RTTMillis = e.pool.rtt().Milliseconds()

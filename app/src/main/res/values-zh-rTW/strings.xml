@@ -108,8 +108,7 @@
     <string name="pref_dns_cache">DNS 快取</string>
     <string name="pref_dns_cache_summary">依 TTL 在本機快取回應,省下往返時間</string>
     <string name="pref_custom">自訂…</string>
-    <string name="pref_ipv6">路由 IPv6</string>
-    <string name="pref_ipv6_summary">一併接管 IPv6 流量,防止繞過通道洩漏</string>
+    <string name="pref_ipv6">IPv6</string>
     <string name="pref_bypass_lan">略過區域網路</string>
     <string name="pref_bypass_lan_summary">私有與鏈路本地位址直接連線</string>
     <string name="pref_excluded_routes">排除網段</string>
@@ -176,4 +175,18 @@
     <string name="vpn_auth_body">先完成授權,App 才會出現在系統 VPN 設定中(啟用永久連線需要)。授權不會立即連線。</string>
     <string name="vpn_auth_action">授權 VPN</string>
     <string name="profile_connections">SSH 連線 ×%1$d</string>
+    <string name="stat_udp_value">使用中 %1$d · 已丟棄 %2$d</string>
+    <string name="stat_dial_failures">連線失敗</string>
+    <string name="stat_ipv6">IPv6</string>
+    <string name="ipv6_state_routed">經通道</string>
+    <string name="ipv6_state_blocked">已封鎖(只用 IPv4)</string>
+    <string name="ipv6_state_blocked_no_server">已封鎖——伺服器無 IPv6</string>
+    <string name="ipv6_state_blocked_probing">已封鎖 · 偵測伺服器中…</string>
+    <string name="ipv6_dialog_header">IPv6 流量一律由 VPN 接管,不會繞過通道洩漏。這裡決定的是:App 能否經由 SSH 伺服器使用 IPv6。伺服器若沒有 IPv6 對外能力、卻允許 App 使用 IPv6,App 會優先嘗試 IPv6 而失敗——例如 Google App 的新聞與縮圖無法載入。</string>
+    <string name="ipv6_mode_auto">自動(建議)</string>
+    <string name="ipv6_mode_auto_desc">連線後實測每台伺服器並記住結果:伺服器能連 IPv6 才讓 IPv6 經通道,否則封鎖、App 改用 IPv4。新伺服器的第一次連線先以封鎖狀態開始。</string>
+    <string name="ipv6_mode_tunnel">經通道</string>
+    <string name="ipv6_mode_tunnel_desc">一律讓 App 經 SSH 伺服器使用 IPv6。僅在確定伺服器有可用 IPv6 時選擇。</string>
+    <string name="ipv6_mode_block">封鎖</string>
+    <string name="ipv6_mode_block_desc">只用 IPv4。IPv6 連線會立即失敗、App 自動改用 IPv4,不會有流量繞出通道。</string>
 </resources>

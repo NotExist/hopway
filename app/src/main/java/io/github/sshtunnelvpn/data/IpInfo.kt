@@ -30,6 +30,8 @@ data class IpInfoStore(
     val byIp: Map<String, IpInfo> = emptyMap(),
     /** 經通道查到的出口資訊,以 profile id 為鍵。 */
     val exits: Map<String, IpInfo> = emptyMap(),
+    /** 伺服器有沒有 IPv6 對外能力(引擎連線後實測),以 profile id 為鍵;供 IPv6「自動」模式使用。 */
+    val ipv6: Map<String, Boolean> = emptyMap(),
 )
 
 /** ipinfo.io 查詢與快取。 */
@@ -59,7 +61,13 @@ class IpInfoRepository(private val store: DataStore<IpInfoStore>) {
         store.data.first().exits[profileId]?.let { fresh(it.fetchedAt, EXIT_RECHECK_MS) } == true
 
     suspend fun forget(profileId: String) {
-        store.updateData { s -> s.copy(exits = s.exits - profileId) }
+        store.updateData { s -> s.copy(exits = s.exits - profileId, ipv6 = s.ipv6 - profileId) }
+    }
+
+    suspend fun ipv6Capable(profileId: String): Boolean? = store.data.first().ipv6[profileId]
+
+    suspend fun recordIpv6(profileId: String, available: Boolean) {
+        store.updateData { s -> s.copy(ipv6 = s.ipv6 + (profileId to available)) }
     }
 
     private fun fresh(t: Long, ttl: Long) = System.currentTimeMillis() - t < ttl

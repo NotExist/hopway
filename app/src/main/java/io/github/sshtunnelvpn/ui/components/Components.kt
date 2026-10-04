@@ -3,6 +3,8 @@ package io.github.sshtunnelvpn.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -123,13 +125,21 @@ fun <T> ChoiceDialog(
     options: List<Pair<T, String>>,
     selected: T,
     onDismiss: () -> Unit,
+    /** 選項下方的補充說明(可選)。 */
+    descriptions: Map<T, String> = emptyMap(),
+    /** 選項清單上方的說明文字(可選)。 */
+    header: String? = null,
     onSelect: (T) -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                header?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 12.dp))
+                }
                 options.forEach { (value, label) ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -142,7 +152,12 @@ fun <T> ChoiceDialog(
                             .padding(vertical = 4.dp),
                     ) {
                         RadioButton(selected = value == selected, onClick = null)
-                        Text(label, modifier = Modifier.padding(start = 12.dp))
+                        Column(Modifier.padding(start = 12.dp)) {
+                            Text(label)
+                            descriptions[value]?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
             }

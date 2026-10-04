@@ -56,6 +56,7 @@ import io.github.sshtunnelvpn.R
 import io.github.sshtunnelvpn.container
 import io.github.sshtunnelvpn.data.AppMode
 import io.github.sshtunnelvpn.data.AppSettings
+import io.github.sshtunnelvpn.data.Ipv6Mode
 import io.github.sshtunnelvpn.data.ThemeMode
 import io.github.sshtunnelvpn.tunnel.Cidr
 import io.github.sshtunnelvpn.ui.Route
@@ -67,7 +68,7 @@ import io.github.sshtunnelvpn.ui.components.SwitchPref
 import io.github.sshtunnelvpn.ui.components.TextInputDialog
 import kotlinx.coroutines.launch
 
-private enum class Dialog { DNS, EXCLUDED, MTU, APP_MODE, SOCKS_PORT, THEME, LOG_LEVEL }
+private enum class Dialog { DNS, EXCLUDED, MTU, APP_MODE, SOCKS_PORT, THEME, LOG_LEVEL, IPV6 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,8 +110,11 @@ fun SettingsScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
                 Icons.Outlined.Cached, s.dnsCache) { v -> set { it.copy(dnsCache = v) } }
 
             SectionHeader(stringResource(R.string.section_routing))
-            SwitchPref(stringResource(R.string.pref_ipv6), stringResource(R.string.pref_ipv6_summary),
-                Icons.Outlined.Language, s.ipv6) { v -> set { it.copy(ipv6 = v) } }
+            PrefItem(
+                stringResource(R.string.pref_ipv6),
+                ipv6ModeLabel(s.ipv6Mode) + "\n" + ipv6ModeDescription(s.ipv6Mode),
+                Icons.Outlined.Language,
+            ) { dialog = Dialog.IPV6 }
             SwitchPref(stringResource(R.string.pref_bypass_lan), stringResource(R.string.pref_bypass_lan_summary),
                 Icons.Outlined.Lan, s.bypassLan) { v -> set { it.copy(bypassLan = v) } }
             PrefItem(
@@ -210,6 +214,13 @@ fun SettingsScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
             ThemeMode.entries.map { it to themeLabel(it) },
             s.theme, onDismiss = { dialog = null },
         ) { v -> set { it.copy(theme = v) } }
+        Dialog.IPV6 -> ChoiceDialog(
+            stringResource(R.string.pref_ipv6),
+            Ipv6Mode.entries.map { it to ipv6ModeLabel(it) },
+            s.ipv6Mode, onDismiss = { dialog = null },
+            descriptions = Ipv6Mode.entries.associateWith { ipv6ModeDescription(it) },
+            header = stringResource(R.string.ipv6_dialog_header),
+        ) { v -> set { it.copy(ipv6Mode = v) } }
         Dialog.LOG_LEVEL -> ChoiceDialog(
             stringResource(R.string.pref_log_level),
             (0..3).map { it to logLevelLabel(it) },
@@ -262,6 +273,24 @@ private fun appModeLabel(m: AppMode) = stringResource(
         AppMode.ALL -> R.string.app_mode_all
         AppMode.ALLOW -> R.string.app_mode_allow
         AppMode.DISALLOW -> R.string.app_mode_disallow
+    },
+)
+
+@Composable
+private fun ipv6ModeLabel(m: Ipv6Mode) = stringResource(
+    when (m) {
+        Ipv6Mode.AUTO -> R.string.ipv6_mode_auto
+        Ipv6Mode.TUNNEL -> R.string.ipv6_mode_tunnel
+        Ipv6Mode.BLOCK -> R.string.ipv6_mode_block
+    },
+)
+
+@Composable
+private fun ipv6ModeDescription(m: Ipv6Mode) = stringResource(
+    when (m) {
+        Ipv6Mode.AUTO -> R.string.ipv6_mode_auto_desc
+        Ipv6Mode.TUNNEL -> R.string.ipv6_mode_tunnel_desc
+        Ipv6Mode.BLOCK -> R.string.ipv6_mode_block_desc
     },
 )
 

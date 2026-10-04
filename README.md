@@ -58,6 +58,29 @@ The Go tests use a second gVisor stack as the "app", so they cover the whole pat
 TCP payload integrity (8 × 2 MB in both directions), two parallel SSH connections, DNS pipelining and caching,
 udpgw, SOCKS5, reconnect after the server drops the connection, auth failure, host-key rejection, and public-key auth with an encrypted key.
 
+## IPv6
+
+IPv6 traffic is **always captured** by the VPN (`::/0` is routed into the tunnel), so it can never leak out of the
+physical network. The setting only decides whether apps may *use* IPv6 through the SSH server:
+
+| Mode | VPN interface | Behavior |
+|---|---|---|
+| Automatic (default) | IPv6 address only if this server was measured to have IPv6 | After connecting, the engine opens a direct-tcpip channel to `[2606:4700:4700::1111]:443`. Success → IPv6 goes through the tunnel; "connect failed" → IPv6 is blocked. The result is remembered per server; a mismatch re-establishes the VPN once. New servers start blocked. |
+| Through tunnel | always has an IPv6 address | Apps prefer IPv6 and it is sent via the server. Only for servers with working IPv6. |
+| Block | no IPv6 address | IPv6 sockets fail immediately (no source address), Android stops asking for AAAA, apps use IPv4. |
+
+Why this matters: if the interface has an IPv6 address but the server has no IPv6 internet access, apps try IPv6 first.
+Previously the engine completed the TCP handshake before connecting upstream, so apps saw "connected, then reset"
+instead of "connection refused" and Happy Eyeballs never fell back to IPv4 (e.g. Google app feed and thumbnails stopped loading).
+
+Engine-side safeguards (independent of the mode):
+
+- **Connect upstream first, then answer the SYN.** If the SSH channel cannot be opened, the app gets a RST
+  (connection refused) and immediately tries its next address.
+- **Known no-IPv6 server:** IPv6 destinations are refused without opening a channel, and AAAA queries get an empty NOERROR answer.
+- **Dropped UDP gets ICMP port unreachable** (no udpgw), so QUIC falls back to TCP at once instead of timing out.
+- The home screen shows failed connections, dropped UDP flows, and the current IPv6 state.
+
 ## UDP (optional)
 
 Run [badvpn-udpgw](https://github.com/ambrop72/badvpn) on the server, then enable "UDP via udpgw" in the profile:

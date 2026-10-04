@@ -108,8 +108,7 @@
     <string name="pref_dns_cache">DNS cache</string>
     <string name="pref_dns_cache_summary">Cache answers locally (TTL-aware) to save round trips</string>
     <string name="pref_custom">Custom…</string>
-    <string name="pref_ipv6">Route IPv6</string>
-    <string name="pref_ipv6_summary">Capture IPv6 traffic too, preventing leaks outside the tunnel</string>
+    <string name="pref_ipv6">IPv6</string>
     <string name="pref_bypass_lan">Bypass LAN</string>
     <string name="pref_bypass_lan_summary">Private and link-local addresses go directly</string>
     <string name="pref_excluded_routes">Excluded subnets</string>
@@ -176,4 +175,18 @@
     <string name="vpn_auth_body">Grant it now so the app appears in system VPN settings (needed for always-on VPN). Nothing connects until you press the button.</string>
     <string name="vpn_auth_action">Grant VPN permission</string>
     <string name="profile_connections">SSH connections ×%1$d</string>
+    <string name="stat_udp_value">%1$d active · %2$d dropped</string>
+    <string name="stat_dial_failures">Failed connections</string>
+    <string name="stat_ipv6">IPv6</string>
+    <string name="ipv6_state_routed">Through tunnel</string>
+    <string name="ipv6_state_blocked">Blocked (IPv4 only)</string>
+    <string name="ipv6_state_blocked_no_server">Blocked — server has no IPv6</string>
+    <string name="ipv6_state_blocked_probing">Blocked · checking server…</string>
+    <string name="ipv6_dialog_header">IPv6 traffic is always captured by the VPN, so it never leaks around the tunnel. The choice is whether apps may use IPv6 through the SSH server. If the server has no IPv6 internet access but apps are allowed to use IPv6, they try IPv6 first and fail — e.g. Google app feeds and thumbnails stop loading.</string>
+    <string name="ipv6_mode_auto">Automatic (recommended)</string>
+    <string name="ipv6_mode_auto_desc">Tests each server after connecting and remembers the result. IPv6 goes through the tunnel only if the server can reach IPv6; otherwise it is blocked and apps use IPv4. The first connection to a new server starts with IPv6 blocked.</string>
+    <string name="ipv6_mode_tunnel">Through tunnel</string>
+    <string name="ipv6_mode_tunnel_desc">Always let apps use IPv6 via the SSH server. Only choose this if the server has working IPv6.</string>
+    <string name="ipv6_mode_block">Block</string>
+    <string name="ipv6_mode_block_desc">IPv4 only. IPv6 connections fail immediately and apps fall back to IPv4; nothing is sent outside the tunnel.</string>
 </resources>

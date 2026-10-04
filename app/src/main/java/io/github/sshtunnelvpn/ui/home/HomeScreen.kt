@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Settings
@@ -391,7 +393,17 @@ private fun StatsGrid(s: TunnelStatus) {
         Triple(Icons.Outlined.Link, stringResource(R.string.stat_connections), "${st.tcpActive} / ${st.tcpTotal}"),
         Triple(Icons.Outlined.Hub, stringResource(R.string.stat_ssh_links), "${st.sshLive} / ${st.sshTotal}"),
         Triple(Icons.Outlined.Dns, stringResource(R.string.stat_dns), "${st.dnsQueries} · $hitRate%"),
-        Triple(Icons.Outlined.Timer, stringResource(R.string.stat_udp), "${st.udpActive}"),
+        Triple(Icons.Outlined.Timer, stringResource(R.string.stat_udp), stringResource(R.string.stat_udp_value, st.udpActive, st.udpDropped)),
+        Triple(Icons.Outlined.ErrorOutline, stringResource(R.string.stat_dial_failures), "${st.dialFailures}"),
+        Triple(
+            Icons.Outlined.Language, stringResource(R.string.stat_ipv6),
+            when {
+                s.ipv6Routed -> stringResource(R.string.ipv6_state_routed)
+                st.serverIpv6 == 2 -> stringResource(R.string.ipv6_state_blocked_no_server)
+                st.serverIpv6 == 0 -> stringResource(R.string.ipv6_state_blocked_probing)
+                else -> stringResource(R.string.ipv6_state_blocked)
+            },
+        ),
         Triple(Icons.Outlined.Storage, stringResource(R.string.stat_server), st.serverVersion.removePrefix("SSH-2.0-").ifBlank { "—" }),
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

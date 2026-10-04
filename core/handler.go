@@ -12,6 +12,7 @@ import (
 
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
 
 type counters struct {
@@ -19,7 +20,8 @@ type counters struct {
 	tcpActive    atomic.Int64
 	tcpTotal     atomic.Int64
 	udpActive    atomic.Int64
-	dialFailures atomic.Int64
+	udpDropped   atomic.Int64 // 沒有 udpgw 或目的地不支援而回 ICMP unreachable 的 UDP 流
+	dialFailures atomic.Int64 // 伺服器端連不到目的地(或已知無 IPv6 而直接拒絕)的 TCP 連線
 }
 
 type handler struct {
@@ -30,6 +32,9 @@ type handler struct {
 	vdns  netip.Addr
 	log   *logger
 	st    *counters
+	stack *stack.Stack
+	// 伺服器的 IPv6 能力:ipv6Unknown / ipv6Yes / ipv6No(由 probeIPv6 設定)
+	ipv6 atomic.Int32
 }
 
 type dialer interface {
@@ -51,35 +56,10 @@ func toAddrPort(a tcpip.Address, port uint16) netip.AddrPort {
 	return netip.AddrPortFrom(ip.Unmap(), port)
 }
 
-func (h *handler) HandleTCP(c adapter.TCPConn) {
-	go h.handleTCP(c)
-}
-
-func (h *handler) handleTCP(c adapter.TCPConn) {
-	defer c.Close()
-	id := c.ID()
-	dst := toAddrPort(id.LocalAddress, id.LocalPort).String()
-	if a := toAddrPort(id.LocalAddress, id.LocalPort); a.Addr() == h.vdns {
-		if a.Port() != 53 {
-			return
-		}
-		// TCP DNS 到虛擬 DNS → 直接轉給上游
-		dst = h.dns.upstream
-	}
-	ctx, cancel := context.WithTimeout(h.ctx, dialTimeout)
-	rc, err := h.pool.Dial(ctx, dst)
-	cancel()
-	if err != nil {
-		h.st.dialFailures.Add(1)
-		h.log.debugf("tcp %s: %v", dst, err)
-		return
-	}
-	defer rc.Close()
-	h.st.tcpActive.Add(1)
-	h.st.tcpTotal.Add(1)
-	defer h.st.tcpActive.Add(-1)
-	relay(c, rc, &h.st.tx, &h.st.rx)
-}
+// HandleTCP / HandleUDP 滿足 tun2socks 的 TransportHandler 介面;實際轉送由 installForwarders
+// 安裝的 forwardTCP / forwardUDP 負責,這兩個只在 stack 建立到替換 forwarder 之間的空窗被呼叫。
+func (h *handler) HandleTCP(c adapter.TCPConn) { c.Close() }
+func (h *handler) HandleUDP(c adapter.UDPConn) { c.Close() }
 
 // relay 雙向複製並支援 half-close;一方結束後另一方最多再撐 tcpHalfClose。
 func relay(local, remote net.Conn, tx, rx *atomic.Int64) {
@@ -114,21 +94,7 @@ func (c *countWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (h *handler) HandleUDP(c adapter.UDPConn) {
-	id := c.ID()
-	dst := toAddrPort(id.LocalAddress, id.LocalPort)
-	switch {
-	case dst.Port() == 53:
-		go h.handleDNS(c)
-	case h.udpgw != nil && dst.Addr() != h.vdns:
-		go h.handleUDPGW(c, dst)
-	default:
-		// 無 udpgw 時丟棄;QUIC 等會自動退回 TCP
-		c.Close()
-	}
-}
-
-func (h *handler) handleDNS(c adapter.UDPConn) {
+func (h *handler) handleDNS(c net.Conn) {
 	defer c.Close()
 	h.st.udpActive.Add(1)
 	defer h.st.udpActive.Add(-1)
@@ -144,7 +110,14 @@ func (h *handler) handleDNS(c adapter.UDPConn) {
 		q := make([]byte, n)
 		copy(q, buf[:n])
 		go func() {
-			resp, err := h.dns.Query(h.ctx, q)
+			var resp []byte
+			var err error
+			if h.ipv6.Load() == ipv6No && isAAAAQuery(q) {
+				// 伺服器沒有 IPv6:AAAA 回空結果,App 只會拿到 IPv4 位址
+				resp = emptyAnswer(q)
+			} else {
+				resp, err = h.dns.Query(h.ctx, q)
+			}
 			if err != nil {
 				h.log.debugf("dns query failed: %v", err)
 				resp = servfail(q)
@@ -173,7 +146,7 @@ func servfail(q []byte) []byte {
 	return r
 }
 
-func (h *handler) handleUDPGW(c adapter.UDPConn, dst netip.AddrPort) {
+func (h *handler) handleUDPGW(c net.Conn, dst netip.AddrPort) {
 	defer c.Close()
 	ctx, cancel := context.WithTimeout(h.ctx, dialTimeout)
 	var lastRecv atomic.Int64

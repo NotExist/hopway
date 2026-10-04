@@ -22,6 +22,7 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
 	"gvisor.dev/gvisor/pkg/tcpip/link/fdbased"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
+	"gvisor.dev/gvisor/pkg/tcpip/network/ipv6"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
@@ -46,7 +47,7 @@ func clientStack(t *testing.T, fd int) *stack.Stack {
 		t.Fatal(err)
 	}
 	s := stack.New(stack.Options{
-		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol},
+		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol},
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
 	})
 	if err := s.CreateNIC(1, ep); err != nil {
@@ -58,7 +59,14 @@ func clientStack(t *testing.T, fd int) *stack.Stack {
 	}, stack.AddressProperties{}); err != nil {
 		t.Fatal(err)
 	}
-	s.SetRouteTable([]tcpip.Route{{Destination: header4Any(), NIC: 1}})
+	addr6 := tcpip.AddrFrom16([16]byte{0xfd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
+	if err := s.AddProtocolAddress(1, tcpip.ProtocolAddress{
+		Protocol: ipv6.ProtocolNumber, AddressWithPrefix: addr6.WithPrefix(),
+	}, stack.AddressProperties{}); err != nil {
+		t.Fatal(err)
+	}
+	any6, _ := tcpip.NewSubnet(tcpip.AddrFrom16([16]byte{}), tcpip.MaskFromBytes(make([]byte, 16)))
+	s.SetRouteTable([]tcpip.Route{{Destination: header4Any(), NIC: 1}, {Destination: any6, NIC: 1}})
 	t.Cleanup(func() { s.Close() })
 	return s
 }
@@ -138,7 +146,20 @@ func TestEndToEndTCPAndDNS(t *testing.T) {
 			}
 		}(i)
 	}
-	wg.Wait()
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(60 * time.Second):
+		mu.Lock()
+		es := cur.stack.Stats()
+		mu.Unlock()
+		as := app.Stats()
+		t.Fatalf("transfer stalled: app retransmits=%d sendErrs=%d timeouts=%d | engine retransmits=%d sendErrs=%d timeouts=%d | app dropped=%d engine dropped=%d",
+			as.TCP.Retransmits.Value(), as.TCP.SegmentSendErrors.Value(), as.TCP.Timeouts.Value(),
+			es.TCP.Retransmits.Value(), es.TCP.SegmentSendErrors.Value(), es.TCP.Timeouts.Value(),
+			as.DroppedPackets.Value(), es.DroppedPackets.Value())
+	}
 
 	st := GetStats()
 	if st.TCPTotal < 8 || st.RxBytes < 16<<20 || st.TxBytes < 16<<20 {

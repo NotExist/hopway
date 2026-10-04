@@ -36,3 +36,4 @@
 - 2026-10-03:建置流程調整——debug 手動觸發 + 固定 debug 金鑰(GitHub runner 的 Android user home 不是 `~/.android`,改為 Gradle 明確指定 signingConfig)、release 只在 tag、versionCode 自動遞增。
 - 2026-10-04:實機回報修正——Android 13+ `excludeRoute(127.0.0.0/8)` 觸發 Builder「Bad address」導致無法連線(路由規劃抽成 `Routes.plan` 並加回歸測試);首頁/設定先取得 VPN 授權以便出現在系統 VPN 清單;`×N` 改為「SSH 連線 ×N」;workflow 拆成 test/debug/release。
 - 2026-10-04:實機首次成功連線。
+- 2026-10-04:Google App 新聞/縮圖載不出來 → 伺服器無 IPv6 所致。修正:先連遠端再握手(失敗回 RST,Happy Eyeballs 可退 IPv4)、自建 gVisor stack(forwarder 在 NIC 前安裝)、IPv6 自動偵測(按伺服器記住,三模式:自動/經通道/封鎖,IPv6 路由一律接管不洩漏)、無 IPv6 時 AAAA 回空、丟棄 UDP 回 ICMP unreachable、首頁顯示連線失敗/UDP 丟棄/IPv6 狀態。測試時曾觀察到一次 race 下 TCP 傳輸停滯原因未定,已在測試加診斷輸出。

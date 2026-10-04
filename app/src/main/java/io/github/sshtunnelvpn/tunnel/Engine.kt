@@ -88,6 +88,8 @@ open class BasePlatform(
 
     override fun onState(state: Long, message: String) {}
 
+    override fun onIPv6(available: Boolean) {}
+
     override fun log(level: Long, message: String) {
         logs?.add(level.toInt(), message)
     }

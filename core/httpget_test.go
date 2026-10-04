@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -22,9 +23,12 @@ func startFakeIPInfo(t *testing.T) string {
 func TestFetchViaTunnel(t *testing.T) {
 	info := startFakeIPInfo(t)
 	srv := newTestSSHServer(t, "pw", nil)
-	var dialed string
+	var mu sync.Mutex
+	dialed := map[string]bool{}
 	srv.redirect = func(addr string) string {
-		dialed = addr
+		mu.Lock()
+		dialed[addr] = true
+		mu.Unlock()
 		if addr == "ipinfo.test:80" {
 			return info
 		}
@@ -46,8 +50,10 @@ func TestFetchViaTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 主機名必須由伺服器端解析(以名稱送出 direct-tcpip),而非手機端
-	if dialed != "ipinfo.test:80" || !strings.Contains(body, `"country":"JP"`) {
-		t.Fatalf("dialed=%q body=%q", dialed, body)
+	mu.Lock()
+	defer mu.Unlock()
+	if !dialed["ipinfo.test:80"] || !strings.Contains(body, `"country":"JP"`) {
+		t.Fatalf("dialed=%v body=%q", dialed, body)
 	}
 }
 

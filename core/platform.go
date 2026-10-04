@@ -34,6 +34,8 @@ type Platform interface {
 	// VerifyHostKey 回傳 true 表示信任此主機金鑰。
 	VerifyHostKey(host string, port int, keyType string, fingerprint string, keyBase64 string) bool
 	OnState(state int, message string)
+	// OnIPv6 回報 SSH 伺服器有沒有 IPv6 對外能力(連上後探測一次)。
+	OnIPv6(available bool)
 	Log(level int, message string)
 }
 

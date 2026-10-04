@@ -245,13 +245,14 @@ type testPlatform struct {
 	msgs     []string
 	rejectHK bool
 	stateCh  chan int
+	ipv6Ch   chan bool
 }
 
 func newTestPlatform(t *testing.T) *testPlatform {
-	return &testPlatform{t: t, stateCh: make(chan int, 64)}
+	return &testPlatform{t: t, stateCh: make(chan int, 64), ipv6Ch: make(chan bool, 4)}
 }
 
-func (p *testPlatform) Protect(fd int) bool             { return true }
+func (p *testPlatform) Protect(fd int) bool            { return true }
 func (p *testPlatform) ResolveHost(host string) string { return "" }
 func (p *testPlatform) VerifyHostKey(host string, port int, kt, fp, kb string) bool {
 	return !p.rejectHK
@@ -267,6 +268,7 @@ func (p *testPlatform) OnState(s int, msg string) {
 	}
 }
 func (p *testPlatform) Log(level int, msg string) { p.t.Logf("[%d] %s", level, msg) }
+func (p *testPlatform) OnIPv6(ok bool)            { p.ipv6Ch <- ok }
 
 func (p *testPlatform) waitState(t *testing.T, want int, d time.Duration) string {
 	t.Helper()

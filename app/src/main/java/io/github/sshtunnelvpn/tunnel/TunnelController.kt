@@ -21,6 +21,12 @@ data class TrafficStats(
     val tcpActive: Long = 0,
     val tcpTotal: Long = 0,
     val udpActive: Long = 0,
+    /** 沒有 udpgw 而回 ICMP unreachable 的 UDP 流(QUIC 會因此改走 TCP)。 */
+    val udpDropped: Long = 0,
+    /** 伺服器端連不到目的地、或因伺服器無 IPv6 而直接拒絕的 TCP 連線。 */
+    val dialFailures: Long = 0,
+    /** 伺服器 IPv6 能力:0 偵測中 / 1 有 / 2 沒有。 */
+    val serverIpv6: Int = 0,
     val dnsQueries: Long = 0,
     val dnsCacheHits: Long = 0,
     val rttMillis: Long = 0,
@@ -36,6 +42,8 @@ data class TunnelStatus(
     val profileName: String? = null,
     val error: String? = null,
     val stats: TrafficStats = TrafficStats(),
+    /** 目前 VPN 介面有沒有 IPv6 位址(true = IPv6 經通道,false = IPv6 被封鎖)。 */
+    val ipv6Routed: Boolean = false,
 )
 
 data class HostKeyMismatch(
