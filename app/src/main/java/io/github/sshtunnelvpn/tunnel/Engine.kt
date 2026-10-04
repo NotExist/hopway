@@ -98,7 +98,7 @@ open class BasePlatform(
 
     override fun onServerIP(ipv4: Long, ipv6: Long) {}
 
-    override fun connectionOwner(proto: Long, srcIP: String, srcPort: Long, dstIP: String, dstPort: Long): String = 
+    override fun connectionOwner(proto: Long, srcIP: String, srcPort: Long, dstIP: String, dstPort: Long): String = ""
 
     override fun log(level: Long, message: String) {
         logs?.add(level.toInt(), message)
