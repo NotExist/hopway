@@ -12,7 +12,7 @@
 - Android app(`app/`)**CI 建置通過**,debug APK 約 27 MB。
 - ABI 限 arm64-v8a / x86_64(與 gomobile target 一致)。
 - **P1 完成**(多伺服器設計見 `docs/design-multi-server-routing.md`):伺服器清單延遲(TCP 探測/連線中顯示 keepalive 即時值)、入口/出口 IP 與國家(ipinfo.io;出口經通道查)、依延遲排序、下拉刷新、檢查出口 IP。CI 綠。
-- **尚未在實機/模擬器跑過**——功能正確性只由 Go 端到端測試與 CidrTest 保證,UI 與 VpnService 流程未實測。
+- **實機已成功連線**(2026-10-04,修正 Bad address 後)。其餘項目(網路切換重連、分 App、QS 磚、永久連線、host key 變更、P1 延遲/出口顯示)尚待實測。
 
 ## 架構重點
 
@@ -35,3 +35,4 @@
 - 2026-10-03:多伺服器路由設計定案(ipinfo.io、先只做 per-app、系統 DNS 獨立呈現);P1 完成,CI 綠。
 - 2026-10-03:建置流程調整——debug 手動觸發 + 固定 debug 金鑰(GitHub runner 的 Android user home 不是 `~/.android`,改為 Gradle 明確指定 signingConfig)、release 只在 tag、versionCode 自動遞增。
 - 2026-10-04:實機回報修正——Android 13+ `excludeRoute(127.0.0.0/8)` 觸發 Builder「Bad address」導致無法連線(路由規劃抽成 `Routes.plan` 並加回歸測試);首頁/設定先取得 VPN 授權以便出現在系統 VPN 清單;`×N` 改為「SSH 連線 ×N」;workflow 拆成 test/debug/release。
+- 2026-10-04:實機首次成功連線。
