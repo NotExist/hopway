@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sys/unix"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
+	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
 	"gvisor.dev/gvisor/pkg/tcpip/link/fdbased"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv6"
@@ -49,6 +50,11 @@ func clientStack(t *testing.T, fd int) *stack.Stack {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return clientStackOn(t, ep)
+}
+
+func clientStackOn(t *testing.T, ep stack.LinkEndpoint) *stack.Stack {
+	t.Helper()
 	s := stack.New(stack.Options{
 		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol},
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
@@ -105,11 +111,12 @@ func TestEndToEndTCPAndDNS(t *testing.T) {
 		return addr
 	}
 
-	engineFd, appFd := socketpair(t)
+	// 大流量測試走記憶體內鏈路(不受 socketpair 208 KB buffer 限制),MTU 與正式環境相同
+	engineEp, appEp := linkPair(t, 8500)
 	plat := newTestPlatform(t)
-	err := Start(engineFd, cfgJSON(t, map[string]any{
+	err := start(-1, engineEp, cfgJSON(t, map[string]any{
 		"host": "127.0.0.1", "port": srv.port(), "user": "u", "password": "pw",
-		"connections": 2, "mtu": testMTU, "virtualDns": "10.0.0.53", "dnsUpstream": "9.9.9.9",
+		"connections": 2, "mtu": 8500, "virtualDns": "10.0.0.53", "dnsUpstream": "9.9.9.9",
 		"dnsCache": true,
 	}), plat)
 	if err != nil {
@@ -118,7 +125,7 @@ func TestEndToEndTCPAndDNS(t *testing.T) {
 	defer Stop()
 	plat.waitState(t, StateConnected, 5*time.Second)
 
-	app := clientStack(t, appFd)
+	app := clientStackOn(t, appEp)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -408,4 +415,39 @@ func fakeAnswer(q []byte) []byte {
 	}}
 	b, _ := m.Pack()
 	return b
+}
+
+// linkPair 建立兩個以記憶體相連的 gVisor channel endpoint,模擬 TUN 的兩端。
+// 佇列夠大且由 goroutine 即時轉送,不會像 socketpair 那樣因 kernel buffer 上限而丟包。
+func linkPair(t *testing.T, mtu uint32) (*channel.Endpoint, *channel.Endpoint) {
+	t.Helper()
+	a := channel.New(1<<14, mtu, "")
+	b := channel.New(1<<14, mtu, "")
+	ctx, cancel := context.WithCancel(context.Background())
+	wire := func(from, to *channel.Endpoint) {
+		for {
+			pkt := from.ReadContext(ctx)
+			if pkt == nil {
+				return
+			}
+			buf := pkt.ToBuffer()
+			pkt.DecRef()
+			v, ok := buf.PullUp(0, 1)
+			if !ok {
+				buf.Release()
+				continue
+			}
+			proto := ipv4.ProtocolNumber
+			if v.AsSlice()[0]>>4 == 6 {
+				proto = ipv6.ProtocolNumber
+			}
+			np := stack.NewPacketBuffer(stack.PacketBufferOptions{Payload: buf})
+			to.InjectInbound(proto, np)
+			np.DecRef()
+		}
+	}
+	go wire(a, b)
+	go wire(b, a)
+	t.Cleanup(cancel)
+	return a, b
 }

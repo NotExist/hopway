@@ -27,7 +27,8 @@ type engine struct {
 	udpgw  *udpgwClient
 	socks  *socksServer
 	h      *handler
-	bg     sync.WaitGroup // 引擎自己的背景 goroutine(IPv6 探測等),stop 時等它們結束
+	link   stack.LinkEndpoint // 測試用:取代 TUN fd 的鏈路
+	bg     sync.WaitGroup     // 引擎自己的背景 goroutine(IPv6 探測等),stop 時等它們結束
 	stack  *stack.Stack
 	dev    interface{ Close() }
 	st     counters
@@ -46,6 +47,11 @@ var (
 // Start 以 VpnService 建立的 TUN fd 啟動引擎。fd 的所有權轉交給 Go
 // (Kotlin 端應使用 ParcelFileDescriptor.detachFd())。
 func Start(tunFd int, configJSON string, p Platform) error {
+	return start(tunFd, nil, configJSON, p)
+}
+
+// start 供 Start 與測試共用:link 非 nil 時直接用它當資料鏈路(測試用的記憶體內鏈路),否則開 tunFd。
+func start(tunFd int, link stack.LinkEndpoint, configJSON string, p Platform) error {
 	cfg, err := parseConfig(configJSON)
 	if err != nil {
 		return err
@@ -56,7 +62,7 @@ func Start(tunFd int, configJSON string, p Platform) error {
 		cur.stop()
 		cur = nil
 	}
-	e := &engine{cfg: cfg, plat: p, log: &logger{p: p}, start: time.Now()}
+	e := &engine{cfg: cfg, plat: p, log: &logger{p: p}, start: time.Now(), link: link}
 	e.log.level.Store(int32(cfg.LogLevel))
 	if err := e.run(tunFd); err != nil {
 		e.stop()
@@ -86,11 +92,18 @@ func (e *engine) run(tunFd int) error {
 	}
 	h := &handler{ctx: ctx, pool: e.pool, dns: e.dns, udpgw: e.udpgw, vdns: vdns, log: e.log, st: &e.st}
 
-	if tunFd >= 0 {
-		dev, err := fdbased.Open(strconv.Itoa(tunFd), uint32(e.cfg.MTU), 0)
+	var dev stack.LinkEndpoint
+	switch {
+	case e.link != nil:
+		dev = e.link
+	case tunFd >= 0:
+		d, err := fdbased.Open(strconv.Itoa(tunFd), uint32(e.cfg.MTU), 0)
 		if err != nil {
 			return fmt.Errorf("open tun: %w", err)
 		}
+		dev = d
+	}
+	if dev != nil {
 		e.dev = dev
 		s, err := createStack(dev, h)
 		if err != nil {
