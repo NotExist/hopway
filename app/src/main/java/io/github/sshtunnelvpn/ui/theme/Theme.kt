@@ -9,6 +9,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import io.github.sshtunnelvpn.data.ThemeMode
 
@@ -66,3 +67,17 @@ fun AppTheme(mode: ThemeMode, dynamicColor: Boolean, content: @Composable () -> 
     }
     MaterialTheme(colorScheme = scheme, content = content)
 }
+
+/**
+ * 流量圖的固定配色:不跟著 Material You 桌布變(動態色彩下 primary / tertiary 常常色相接近而難以分辨)。
+ * 藍(下載)/ 橘(上傳)是色盲也能區分的組合;依實際背景亮度選淺色或深色版本。
+ */
+data class TrafficColors(val download: Color, val upload: Color)
+
+@Composable
+fun trafficColors(): TrafficColors =
+    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
+        TrafficColors(download = Color(0xFF64B5F6), upload = Color(0xFFFFB74D))
+    } else {
+        TrafficColors(download = Color(0xFF1565C0), upload = Color(0xFFE65100))
+    }

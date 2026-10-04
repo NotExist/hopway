@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -205,11 +206,12 @@ fun TextInputDialog(
     )
 }
 
-/** 即時流量曲線:下載實線+漸層填色,上傳細線。 */
+/** 即時流量曲線:下載為實線+漸層填色,上傳為虛線;顏色固定(見 trafficColors),線型再多一層區別。 */
 @Composable
 fun SpeedChart(samples: List<TrafficSample>, capacity: Int, modifier: Modifier = Modifier) {
-    val rxColor = MaterialTheme.colorScheme.primary
-    val txColor = MaterialTheme.colorScheme.tertiary
+    val colors = io.github.sshtunnelvpn.ui.theme.trafficColors()
+    val rxColor = colors.download
+    val txColor = colors.upload
     val grid = MaterialTheme.colorScheme.outlineVariant
     Canvas(modifier) {
         val w = size.width
@@ -238,7 +240,13 @@ fun SpeedChart(samples: List<TrafficSample>, capacity: Int, modifier: Modifier =
         }
         drawPath(fill, Brush.verticalGradient(listOf(rxColor.copy(alpha = 0.35f), rxColor.copy(alpha = 0f))))
         drawPath(rx, rxColor, style = Stroke(width = 2.5.dp.toPx()))
-        drawPath(path { it.txRate }, txColor, style = Stroke(width = 1.5.dp.toPx()))
+        drawPath(
+            path { it.txRate }, txColor,
+            style = Stroke(
+                width = 2.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())),
+            ),
+        )
     }
 }
 

@@ -93,6 +93,7 @@ import io.github.sshtunnelvpn.tunnel.TunnelState
 import io.github.sshtunnelvpn.tunnel.TunnelStatus
 import io.github.sshtunnelvpn.ui.Route
 import io.github.sshtunnelvpn.ui.components.SpeedChart
+import io.github.sshtunnelvpn.ui.theme.trafficColors
 import io.github.sshtunnelvpn.ui.profiles.MissingCredentialsWarning
 import io.github.sshtunnelvpn.ui.formatBytes
 import io.github.sshtunnelvpn.ui.formatDuration
@@ -366,10 +367,11 @@ private fun TrafficCard(s: TunnelStatus, history: List<io.github.sshtunnelvpn.tu
     ) {
         Column(Modifier.padding(20.dp)) {
             Row(Modifier.fillMaxWidth()) {
+                val tc = trafficColors()
                 RateColumn(Icons.Filled.ArrowDownward, stringResource(R.string.stat_download), s.stats.rxRate,
-                    s.stats.rxBytes, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                    s.stats.rxBytes, tc.download, dashed = false, Modifier.weight(1f))
                 RateColumn(Icons.Filled.ArrowUpward, stringResource(R.string.stat_upload), s.stats.txRate,
-                    s.stats.txBytes, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
+                    s.stats.txBytes, tc.upload, dashed = true, Modifier.weight(1f))
             }
             Spacer(Modifier.height(16.dp))
             SpeedChart(history, TunnelController.HISTORY, Modifier.fillMaxWidth().height(120.dp))
@@ -378,14 +380,17 @@ private fun TrafficCard(s: TunnelStatus, history: List<io.github.sshtunnelvpn.tu
 }
 
 @Composable
-private fun RateColumn(icon: ImageVector, label: String, rate: Long, total: Long, color: Color, modifier: Modifier) {
+private fun RateColumn(icon: ImageVector, label: String, rate: Long, total: Long, color: Color, dashed: Boolean, modifier: Modifier) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = color, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // 圖例與線條同色,並附一小段線型樣本(實線/虛線)
+            Text(label, style = MaterialTheme.typography.labelLarge, color = color)
+            Spacer(Modifier.width(6.dp))
+            LegendLine(color, dashed)
         }
-        Text(formatRate(rate), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(formatRate(rate), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = color)
         Text(
             stringResource(R.string.stat_total, formatBytes(total)),
             style = MaterialTheme.typography.bodySmall,
@@ -484,4 +489,16 @@ private fun HostKeyMismatchDialog(m: HostKeyMismatch, onDismiss: () -> Unit, onT
         confirmButton = { TextButton(onClick = onTrust) { Text(stringResource(R.string.hostkey_trust)) } },
         dismissButton = { FilledTonalButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+@Composable
+private fun LegendLine(color: Color, dashed: Boolean) {
+    androidx.compose.foundation.Canvas(Modifier.size(width = 20.dp, height = 8.dp)) {
+        val y = size.height / 2
+        drawLine(
+            color, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y),
+            strokeWidth = 2.dp.toPx(),
+            pathEffect = if (dashed) androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())) else null,
+        )
+    }
 }
