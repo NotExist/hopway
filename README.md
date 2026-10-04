@@ -81,6 +81,16 @@ Engine-side safeguards (independent of the mode):
 - **Dropped UDP gets ICMP port unreachable** (no udpgw), so QUIC falls back to TCP at once instead of timing out.
 - The home screen shows failed connections, dropped UDP flows, and the current IPv6 state.
 
+## Server list export / import
+
+Servers → ⋮ → Export / Import. The file (`sshtunnelvpn-servers-<date>.json`) contains the servers and their trusted host keys.
+
+- Without "include passwords and private keys": connection settings only, stored as plain JSON.
+- With it: the whole payload is encrypted with a passphrase (PBKDF2-HMAC-SHA256, 310k iterations → AES-256-GCM); no credential ever appears in plaintext.
+- Import merges by server id: existing servers are updated but keep their local credentials if the file has none; local host-key trust always wins over the file.
+
+Each server in the list shows `IPv6 ✓ / ✗ / ?` (available / not available / not tested). The value comes from the last measurement on that server: a VPN connection, "Test connection", or "Check exit IP".
+
 ## UDP (optional)
 
 Run [badvpn-udpgw](https://github.com/ambrop72/badvpn) on the server, then enable "UDP via udpgw" in the profile:

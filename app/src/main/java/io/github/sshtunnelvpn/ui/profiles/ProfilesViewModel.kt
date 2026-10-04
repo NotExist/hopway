@@ -2,7 +2,14 @@ package io.github.sshtunnelvpn.ui.profiles
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.ContentResolver
+import android.net.Uri
 import io.github.sshtunnelvpn.AppContainer
+import io.github.sshtunnelvpn.R
+import io.github.sshtunnelvpn.data.BackupPayload
+import io.github.sshtunnelvpn.data.EncryptedBlob
+import io.github.sshtunnelvpn.data.ProfileBackup
+import io.github.sshtunnelvpn.data.WrongPassphraseException
 import io.github.sshtunnelvpn.data.IpInfo
 import io.github.sshtunnelvpn.data.IpInfoRepository
 import io.github.sshtunnelvpn.data.Profile
@@ -36,6 +43,19 @@ data class Probe(
     val checkingExit: Boolean = false,
 )
 
+/** ViewModel 不持有 Context:需要在地化的訊息以資源 id 傳給畫面再組字串。 */
+sealed interface UiMessage {
+    data class Text(val text: String) : UiMessage
+    data class Res(val id: Int, val args: List<Any> = emptyList()) : UiMessage
+}
+
+/** TestResult.IPv6:1 有 / 2 沒有 / 0 無法判定。 */
+fun ipv6Of(v: Long): Boolean? = when (v) {
+    1L -> true
+    2L -> false
+    else -> null
+}
+
 class ProfilesViewModel(private val c: AppContainer) : ViewModel() {
     private val _probes = MutableStateFlow<Map<String, Probe>>(emptyMap())
     val probes: StateFlow<Map<String, Probe>> = _probes.asStateFlow()
@@ -43,9 +63,18 @@ class ProfilesViewModel(private val c: AppContainer) : ViewModel() {
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
-    /** 一次性訊息(檢查出口失敗等),由畫面以 Snackbar 顯示後清除。 */
-    private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message.asStateFlow()
+    /** 一次性訊息(檢查出口失敗、匯出入結果等),由畫面以 Snackbar 顯示後清除。 */
+    private val _message = MutableStateFlow<UiMessage?>(null)
+    val message: StateFlow<UiMessage?> = _message.asStateFlow()
+
+    /** 匯入加密檔時等待使用者輸入密語。 */
+    private val _importBlob = MutableStateFlow<EncryptedBlob?>(null)
+    val importBlob: StateFlow<EncryptedBlob?> = _importBlob.asStateFlow()
+    private val _importError = MutableStateFlow<Boolean>(false)
+    val importWrongPassphrase: StateFlow<Boolean> = _importError.asStateFlow()
+
+    private val _busy = MutableStateFlow(false)
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
     private val limit = Semaphore(4)
 
@@ -106,15 +135,92 @@ class ProfilesViewModel(private val c: AppContainer) : ViewModel() {
             val platform = BasePlatform(c.knownHosts, persistHostKeys = false, onMismatch = {}, logs = c.logs)
             val r = EngineOps.test(p, platform, IpInfoRepository.EXIT_URL)
             r.onSuccess { res ->
+                ipv6Of(res.getIPv6())?.let { c.ipInfo.recordIpv6(p.id, it) }
                 val info = res.exitInfo.takeIf { it.isNotEmpty() }?.let(IpInfoRepository::parse)
-                if (info != null) c.ipInfo.recordExit(p.id, info) else _message.value = res.exitError.ifBlank { "unexpected response" }
-            }.onFailure { _message.value = it.message ?: it.toString() }
+                if (info != null) c.ipInfo.recordExit(p.id, info)
+                else _message.value = UiMessage.Text(res.exitError.ifBlank { "unexpected response" })
+            }.onFailure { _message.value = UiMessage.Text(it.message ?: it.toString()) }
             edit(p.id) { it.copy(checkingExit = false) }
         }
     }
 
     fun consumeMessage() {
         _message.value = null
+    }
+
+    /** [passphrase] 為 null 時不含帳密(明文);非 null 時含帳密並以密語加密。 */
+    fun exportTo(resolver: ContentResolver, uri: Uri, passphrase: CharArray?) {
+        viewModelScope.launch {
+            _busy.value = true
+            val r = withContext(Dispatchers.Default) {
+                runCatching {
+                    val json = ProfileBackup.export(c.profiles.profiles.first(), c.knownHosts.hosts.first(), passphrase)
+                    withContext(Dispatchers.IO) {
+                        resolver.openOutputStream(uri, "wt")!!.use { it.write(json.encodeToByteArray()) }
+                    }
+                }
+            }
+            passphrase?.fill(' ')
+            _busy.value = false
+            _message.value = r.fold(
+                { UiMessage.Res(R.string.backup_exported, listOf(c.profiles.profiles.first().size)) },
+                { UiMessage.Text(it.message ?: it.toString()) },
+            )
+        }
+    }
+
+    fun importFrom(resolver: ContentResolver, uri: Uri) {
+        viewModelScope.launch {
+            val parsed = withContext(Dispatchers.IO) {
+                runCatching {
+                    val text = resolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+                    ProfileBackup.parse(text)
+                }
+            }
+            parsed.onSuccess {
+                when (it) {
+                    is ProfileBackup.Parsed.Plain -> applyImport(it.payload)
+                    is ProfileBackup.Parsed.Encrypted -> {
+                        _importError.value = false
+                        _importBlob.value = it.blob
+                    }
+                }
+            }.onFailure { _message.value = UiMessage.Res(R.string.backup_invalid_file) }
+        }
+    }
+
+    fun decryptImport(passphrase: CharArray) {
+        val blob = _importBlob.value ?: return
+        viewModelScope.launch {
+            _busy.value = true
+            val r = withContext(Dispatchers.Default) { runCatching { ProfileBackup.decrypt(blob, passphrase) } }
+            passphrase.fill(' ')
+            _busy.value = false
+            r.onSuccess {
+                _importBlob.value = null
+                applyImport(it)
+            }.onFailure {
+                if (it is WrongPassphraseException) _importError.value = true
+                else {
+                    _importBlob.value = null
+                    _message.value = UiMessage.Res(R.string.backup_invalid_file)
+                }
+            }
+        }
+    }
+
+    fun cancelImport() {
+        _importBlob.value = null
+    }
+
+    private suspend fun applyImport(payload: BackupPayload) {
+        val r = ProfileBackup.merge(c.profiles.profiles.first(), c.knownHosts.snapshot(), payload)
+        c.profiles.replaceAll(r.profiles)
+        c.knownHosts.replaceAll(r.knownHosts)
+        if (c.settings.current().selectedProfileId == null) {
+            r.profiles.firstOrNull()?.let { p -> c.settings.update { it.copy(selectedProfileId = p.id) } }
+        }
+        _message.value = UiMessage.Res(R.string.backup_imported, listOf(r.added, r.updated, r.hostKeyConflicts))
     }
 
     companion object {

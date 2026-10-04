@@ -189,4 +189,25 @@
     <string name="ipv6_mode_tunnel_desc">一律讓 App 經 SSH 伺服器使用 IPv6。僅在確定伺服器有可用 IPv6 時選擇。</string>
     <string name="ipv6_mode_block">封鎖</string>
     <string name="ipv6_mode_block_desc">只用 IPv4。IPv6 連線會立即失敗、App 自動改用 IPv4,不會有流量繞出通道。</string>
+    <string name="ipv6_badge_yes">此伺服器 IPv6 可用</string>
+    <string name="ipv6_badge_no">此伺服器 IPv6 不可用</string>
+    <string name="ipv6_badge_unknown">此伺服器 IPv6 未測</string>
+    <string name="test_ipv6_yes">IPv6:可用</string>
+    <string name="test_ipv6_no">IPv6:不可用(自動模式下會封鎖 IPv6)</string>
+    <string name="test_ipv6_unknown">IPv6:無法判定</string>
+    <string name="backup_export">匯出伺服器清單</string>
+    <string name="backup_import">匯入伺服器清單</string>
+    <string name="backup_export_body">將所有伺服器與其已信任的主機金鑰匯出為 JSON 檔。</string>
+    <string name="backup_include_secrets">包含密碼與私鑰</string>
+    <string name="backup_secrets_hint">整份檔案會以此密語加密(PBKDF2 + AES-256-GCM)。匯入時需要輸入,遺失無法復原。</string>
+    <string name="backup_passphrase">密語</string>
+    <string name="backup_passphrase_confirm">再次輸入密語</string>
+    <string name="backup_passphrase_min">至少 %1$d 個字元</string>
+    <string name="backup_export_action">選擇存檔位置…</string>
+    <string name="backup_import_encrypted">此檔案含密碼與私鑰,已加密。請輸入匯出時設定的密語。</string>
+    <string name="backup_wrong_passphrase">密語錯誤</string>
+    <string name="backup_import_action">匯入</string>
+    <string name="backup_exported">已匯出 %1$d 台伺服器</string>
+    <string name="backup_imported">已匯入:新增 %1$d、更新 %2$d(%3$d 個主機金鑰衝突,保留本機紀錄)</string>
+    <string name="backup_invalid_file">不是有效的伺服器清單檔</string>
 </resources>

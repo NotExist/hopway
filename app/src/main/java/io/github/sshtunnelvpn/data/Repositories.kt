@@ -71,4 +71,10 @@ class KnownHostsRepository(private val store: DataStore<KnownHostStore>) {
     suspend fun forget(key: String) {
         store.updateData { s -> s.copy(hosts = s.hosts - key) }
     }
+
+    suspend fun snapshot(): Map<String, KnownHost> = store.data.first().hosts
+
+    suspend fun replaceAll(hosts: Map<String, KnownHost>) {
+        store.updateData { KnownHostStore(hosts) }
+    }
 }

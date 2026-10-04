@@ -37,3 +37,5 @@
 - 2026-10-04:實機回報修正——Android 13+ `excludeRoute(127.0.0.0/8)` 觸發 Builder「Bad address」導致無法連線(路由規劃抽成 `Routes.plan` 並加回歸測試);首頁/設定先取得 VPN 授權以便出現在系統 VPN 清單;`×N` 改為「SSH 連線 ×N」;workflow 拆成 test/debug/release。
 - 2026-10-04:實機首次成功連線。
 - 2026-10-04:Google App 新聞/縮圖載不出來 → 伺服器無 IPv6 所致。修正:先連遠端再握手(失敗回 RST,Happy Eyeballs 可退 IPv4)、自建 gVisor stack(forwarder 在 NIC 前安裝)、IPv6 自動偵測(按伺服器記住,三模式:自動/經通道/封鎖,IPv6 路由一律接管不洩漏)、無 IPv6 時 AAAA 回空、丟棄 UDP 回 ICMP unreachable、首頁顯示連線失敗/UDP 丟棄/IPv6 狀態。測試時曾觀察到一次 race 下 TCP 傳輸停滯原因未定,已在測試加診斷輸出。
+- 2026-10-04:伺服器清單顯示 IPv6 能力(✓/✗/?,測試連線與檢查出口也會測 IPv6);伺服器清單匯出/匯入(含帳密時以密語 PBKDF2+AES-GCM 加密,合併時保留本機帳密與主機金鑰信任)。測試停滯根因確認為 socketpair 代替 TUN 時 buffer(上限 208 KB)寫滿 EAGAIN 丟包、TCP 重傳逾時退避;測試 MTU 改 1500 後連續通過。
+- 2026-10-04:relay half-close 改為閒置逾時(原本一方 half-close 後另一方向套固定 60 秒期限,長下載會被截斷),加回歸測試。

@@ -300,7 +300,7 @@ fun ProfileEditScreen(profileId: String?, onBack: () -> Unit) {
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.action_test_connection))
             }
-            TestResultCard(vm.test, vm.exit, onTrust = vm::trustAndRetest)
+            TestResultCard(vm.test, vm.exit, vm.ipv6, onTrust = vm::trustAndRetest)
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -369,7 +369,7 @@ private fun LabeledSlider(
 }
 
 @Composable
-private fun TestResultCard(state: TestState, exit: io.github.sshtunnelvpn.data.IpInfo?, onTrust: (io.github.sshtunnelvpn.tunnel.HostKeyMismatch) -> Unit) {
+private fun TestResultCard(state: TestState, exit: io.github.sshtunnelvpn.data.IpInfo?, ipv6: Boolean?, onTrust: (io.github.sshtunnelvpn.tunnel.HostKeyMismatch) -> Unit) {
     when (state) {
         is TestState.Ok -> Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
             Row(Modifier.padding(16.dp)) {
@@ -391,6 +391,16 @@ private fun TestResultCard(state: TestState, exit: io.github.sshtunnelvpn.data.I
                             Text(stringResource(R.string.exit_check_failed, r.exitError), style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error)
                         }
+                        Text(
+                            stringResource(
+                                when (ipv6) {
+                                    true -> R.string.test_ipv6_yes
+                                    false -> R.string.test_ipv6_no
+                                    null -> R.string.test_ipv6_unknown
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                         if (r.getUDPGWOK()) Text(stringResource(R.string.test_udpgw_ok), style = MaterialTheme.typography.bodySmall)
                         if (r.udpgwError.isNotEmpty()) {
                             Text(stringResource(R.string.test_udpgw_fail, r.udpgwError), style = MaterialTheme.typography.bodySmall,

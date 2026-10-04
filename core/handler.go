@@ -42,7 +42,8 @@ type dialer interface {
 }
 
 const (
-	dialTimeout   = 20 * time.Second
+	dialTimeout = 20 * time.Second
+	// tcpHalfClose:一方 half-close 後,另一方向允許的最長閒置時間
 	tcpHalfClose  = 60 * time.Second
 	udpDNSIdle    = 20 * time.Second
 	relayBufSize  = 32 << 10
@@ -61,22 +62,47 @@ func toAddrPort(a tcpip.Address, port uint16) netip.AddrPort {
 func (h *handler) HandleTCP(c adapter.TCPConn) { c.Close() }
 func (h *handler) HandleUDP(c adapter.UDPConn) { c.Close() }
 
-// relay 雙向複製並支援 half-close;一方結束後另一方最多再撐 tcpHalfClose。
+// relay 雙向複製並支援 half-close。
+// 一方結束(例如 App 送完請求後 shutdown(SHUT_WR))後,另一方繼續傳,但改用「閒置」逾時:
+// 連續 idle 沒有資料才斷;只要還在傳就不會被切(不能用固定期限,否則長下載會被截斷)。
 func relay(local, remote net.Conn, tx, rx *atomic.Int64) {
+	relayIdle(local, remote, tx, rx, tcpHalfClose)
+}
+
+func relayIdle(local, remote net.Conn, tx, rx *atomic.Int64, idle time.Duration) {
 	var wg sync.WaitGroup
+	var half atomic.Bool
 	wg.Add(2)
 	cp := func(dst, src net.Conn, n *atomic.Int64) {
 		defer wg.Done()
 		bp := relayBufPool.Get().(*[]byte)
 		defer relayBufPool.Put(bp)
-		_, _ = io.CopyBuffer(&countWriter{dst, n}, src, *bp)
+		buf := *bp
+		for {
+			if half.Load() {
+				_ = src.SetReadDeadline(time.Now().Add(idle))
+			}
+			nr, rerr := src.Read(buf)
+			if nr > 0 {
+				nw, werr := dst.Write(buf[:nr])
+				n.Add(int64(nw))
+				if werr != nil || nw != nr {
+					break
+				}
+			}
+			if rerr != nil {
+				break
+			}
+		}
 		if cw, ok := dst.(interface{ CloseWrite() error }); ok {
 			_ = cw.CloseWrite()
 		} else {
 			_ = dst.Close()
 		}
-		_ = src.SetReadDeadline(time.Now().Add(tcpHalfClose))
-		_ = dst.SetReadDeadline(time.Now().Add(tcpHalfClose))
+		// 通知另一方向改用閒置逾時;另一方若正阻塞在 Read,用 deadline 讓它在閒置 idle 後醒來
+		if !half.Swap(true) {
+			_ = dst.SetReadDeadline(time.Now().Add(idle))
+		}
 	}
 	go cp(remote, local, tx)
 	cp(local, remote, rx)

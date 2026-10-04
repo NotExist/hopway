@@ -28,7 +28,10 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
 )
 
-const testMTU = 8500
+// 測試用 socketpair 代替 TUN:非 root 時 socket buffer 上限約 208 KB,寫滿會 EAGAIN 丟包
+// (真正的 TUN 寫入不會這樣)。用 1500 的 MTU 讓 buffer 可容納約 140 個封包,
+// 避免 -race 變慢時大量丟包、TCP 重傳逾時一路退避而停滯。
+const testMTU = 1500
 
 func cfgJSON(t *testing.T, m map[string]any) string {
 	b, err := json.Marshal(m)

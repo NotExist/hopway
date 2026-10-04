@@ -128,10 +128,13 @@ func (s *testSSHServer) handle(nc net.Conn) {
 				return
 			}
 			go ssh.DiscardRequests(creqs)
-			go func() { io.Copy(ch, tc); ch.CloseWrite() }()
+			// 兩個方向都結束才關閉,避免截斷仍在傳的下行資料
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() { defer wg.Done(); io.Copy(ch, tc); ch.CloseWrite() }()
 			io.Copy(tc, ch)
 			tc.(*net.TCPConn).CloseWrite()
-			time.Sleep(50 * time.Millisecond)
+			wg.Wait()
 			ch.Close()
 			tc.Close()
 		}(nch, addr)

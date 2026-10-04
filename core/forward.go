@@ -132,34 +132,40 @@ func setTCPOptions(s *stack.Stack, ep tcpip.Endpoint) {
 	}
 }
 
-// probeIPv6 在 SSH 連上後經伺服器嘗試連一個 IPv6 目的地,判斷伺服器有沒有 IPv6 對外能力。
-// 只有伺服器明確回報「連不上」(OpenChannelError)才判定為沒有;逾時等暫時性錯誤視為未知,不回報。
-func (e *engine) probeIPv6(ctx context.Context, h *handler) {
+// probeIPv6With 經 dial(SSH direct-tcpip)嘗試連一個 IPv6 目的地,判斷伺服器有沒有 IPv6 對外能力。
+// 只有伺服器明確回報「連不上」(OpenChannelError)才判定為沒有;逾時等暫時性錯誤視為無法判定。
+func probeIPv6With(ctx context.Context, dial func(context.Context, string) (net.Conn, error)) int32 {
 	pctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	c, err := e.pool.Dial(pctx, ipv6ProbeTarget)
-	var ok bool
+	c, err := dial(pctx, ipv6ProbeTarget)
 	switch {
 	case err == nil:
 		c.Close()
-		ok = true
+		return ipv6Yes
 	case errors.As(err, new(*ssh.OpenChannelError)):
-		ok = false
+		return ipv6No
 	default:
-		if ctx.Err() == nil {
-			e.log.debugf("ipv6 probe inconclusive: %v", err)
-		}
-		return
+		return ipv6Unknown
 	}
+}
+
+// probeIPv6 在引擎 SSH 連上後探測一次,結果用於拒絕 IPv6 連線/過濾 AAAA,並回報平台端。
+func (e *engine) probeIPv6(ctx context.Context, h *handler) {
+	r := probeIPv6With(ctx, e.pool.Dial)
 	if ctx.Err() != nil {
 		return // 引擎已停止,不再回報
 	}
+	if r == ipv6Unknown {
+		e.log.debugf("ipv6 probe inconclusive")
+		return
+	}
+	ok := r == ipv6Yes
 	if ok {
 		h.ipv6.Store(ipv6Yes)
 		e.log.infof("server has IPv6 connectivity")
 	} else {
 		h.ipv6.Store(ipv6No)
-		e.log.warnf("server has no IPv6 connectivity (%v); IPv6 destinations will be refused", err)
+		e.log.warnf("server has no IPv6 connectivity; IPv6 destinations will be refused")
 	}
 	if e.plat != nil {
 		e.plat.OnIPv6(ok)

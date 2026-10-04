@@ -189,4 +189,25 @@
     <string name="ipv6_mode_tunnel_desc">Always let apps use IPv6 via the SSH server. Only choose this if the server has working IPv6.</string>
     <string name="ipv6_mode_block">Block</string>
     <string name="ipv6_mode_block_desc">IPv4 only. IPv6 connections fail immediately and apps fall back to IPv4; nothing is sent outside the tunnel.</string>
+    <string name="ipv6_badge_yes">IPv6 available on this server</string>
+    <string name="ipv6_badge_no">No IPv6 on this server</string>
+    <string name="ipv6_badge_unknown">IPv6 not tested yet</string>
+    <string name="test_ipv6_yes">IPv6: available</string>
+    <string name="test_ipv6_no">IPv6: not available (IPv6 will be blocked in automatic mode)</string>
+    <string name="test_ipv6_unknown">IPv6: could not determine</string>
+    <string name="backup_export">Export server list</string>
+    <string name="backup_import">Import server list</string>
+    <string name="backup_export_body">Exports all servers and their trusted host keys as a JSON file.</string>
+    <string name="backup_include_secrets">Include passwords and private keys</string>
+    <string name="backup_secrets_hint">The whole file will be encrypted with this passphrase (PBKDF2 + AES-256-GCM). It is required for importing and cannot be recovered.</string>
+    <string name="backup_passphrase">Passphrase</string>
+    <string name="backup_passphrase_confirm">Confirm passphrase</string>
+    <string name="backup_passphrase_min">At least %1$d characters</string>
+    <string name="backup_export_action">Choose file…</string>
+    <string name="backup_import_encrypted">This file includes passwords and private keys and is encrypted. Enter the passphrase used when exporting.</string>
+    <string name="backup_wrong_passphrase">Wrong passphrase</string>
+    <string name="backup_import_action">Import</string>
+    <string name="backup_exported">Exported %1$d servers</string>
+    <string name="backup_imported">Imported: %1$d added, %2$d updated (%3$d host key conflicts kept as local)</string>
+    <string name="backup_invalid_file">Not a valid server list file</string>
 </resources>

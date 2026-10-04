@@ -86,3 +86,29 @@ func TestTestConnectionExitCheck(t *testing.T) {
 		t.Fatalf("expected exit error, got res=%+v err=%v", res, err)
 	}
 }
+
+func TestTestConnectionProbesIPv6(t *testing.T) {
+	echo := startEchoServer(t)
+	closed := closedPort(t)
+	for _, tc := range []struct {
+		to   string
+		want int64
+	}{{echo, ipv6Yes}, {closed, ipv6No}} {
+		srv := newTestSSHServer(t, "pw", nil)
+		srv.redirect = func(addr string) string {
+			if addr == ipv6ProbeTarget {
+				return tc.to
+			}
+			return addr
+		}
+		res, err := TestConnection(cfgJSON(t, map[string]any{
+			"host": "127.0.0.1", "port": srv.port(), "user": "u", "password": "pw",
+		}), newTestPlatform(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.IPv6 != tc.want {
+			t.Fatalf("ipv6 = %d, want %d", res.IPv6, tc.want)
+		}
+	}
+}

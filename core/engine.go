@@ -259,6 +259,8 @@ type TestResult struct {
 	// ExitInfo 為經通道 GET ExitCheckURL 的回應 body(JSON),ExitError 為失敗原因
 	ExitInfo  string
 	ExitError string
+	// IPv6 為伺服器的 IPv6 對外能力:0 無法判定 / 1 有 / 2 沒有
+	IPv6 int64
 }
 
 // TestConnection 以給定設定做一次 SSH 握手 + 認證 + keepalive,不建立 VPN。
@@ -298,8 +300,9 @@ func TestConnection(configJSON string, p Platform) (*TestResult, error) {
 			c.Close()
 		}
 	}
+	dial := func(ctx context.Context, addr string) (net.Conn, error) { return client.DialContext(ctx, "tcp", addr) }
+	res.IPv6 = int64(probeIPv6With(ctx, dial))
 	if cfg.ExitCheckURL != "" {
-		dial := func(ctx context.Context, addr string) (net.Conn, error) { return client.DialContext(ctx, "tcp", addr) }
 		if body, err := httpGet(ctx, dial, cfg.ExitCheckURL); err != nil {
 			res.ExitError = err.Error()
 		} else {

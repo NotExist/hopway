@@ -1,5 +1,18 @@
 package io.github.sshtunnelvpn.ui.profiles
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.FileUpload
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import io.github.sshtunnelvpn.data.ProfileBackup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,6 +103,23 @@ fun ProfilesScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
     val settings by c.settings.settings.collectAsStateWithLifecycle(AppSettings())
     val status by c.tunnel.status.collectAsStateWithLifecycle()
     val exits by c.ipInfo.exits.collectAsStateWithLifecycle(emptyMap())
+    val ipv6Map by c.ipInfo.ipv6.collectAsStateWithLifecycle(emptyMap())
+    val importBlob by vm.importBlob.collectAsStateWithLifecycle()
+    val importWrong by vm.importWrongPassphrase.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
+    val ctx = LocalContext.current
+    var moreMenu by remember { mutableStateOf(false) }
+    var exportDialog by remember { mutableStateOf(false) }
+    // 匯出選項在 SAF 選完檔案前暫存;null = 不含帳密
+    var pendingExportPass by remember { mutableStateOf<CharArray?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        val pass = pendingExportPass
+        pendingExportPass = null
+        if (uri != null) vm.exportTo(ctx.contentResolver, uri, pass) else pass?.fill(' ')
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.importFrom(ctx.contentResolver, uri)
+    }
     val probes by vm.probes.collectAsStateWithLifecycle()
     val refreshing by vm.refreshing.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
@@ -104,8 +134,12 @@ fun ProfilesScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.probeLoop() } }
     LaunchedEffect(message) {
-        message?.let {
-            snackbar.showSnackbar(it)
+        message?.let { m ->
+            val text = when (m) {
+                is UiMessage.Text -> m.text
+                is UiMessage.Res -> ctx.getString(m.id, *m.args.toTypedArray())
+            }
+            snackbar.showSnackbar(text)
             vm.consumeMessage()
         }
     }
@@ -140,6 +174,23 @@ fun ProfilesScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
                                 onClick = { sortBy = k; sortMenu = false },
                             )
                         }
+                    }
+                }
+                Box {
+                    IconButton(onClick = { moreMenu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.action_more)) }
+                    DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.backup_export)) },
+                            leadingIcon = { Icon(Icons.Outlined.FileUpload, null) },
+                            enabled = profiles.isNotEmpty() && !busy,
+                            onClick = { moreMenu = false; exportDialog = true },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.backup_import)) },
+                            leadingIcon = { Icon(Icons.Outlined.FileDownload, null) },
+                            enabled = !busy,
+                            onClick = { moreMenu = false; importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                        )
                     }
                 }
             }
@@ -185,6 +236,7 @@ fun ProfilesScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
                         probe = probe,
                         liveRtt = live,
                         exit = exits[p.id],
+                        ipv6 = ipv6Map[p.id],
                         onSelect = { select(p) },
                         onEdit = { navigate(Route.EditProfile(p.id)) },
                         onCheckExit = { vm.checkExit(p) },
@@ -197,6 +249,26 @@ fun ProfilesScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (exportDialog) {
+        ExportDialog(
+            onDismiss = { exportDialog = false },
+            onConfirm = { pass ->
+                exportDialog = false
+                pendingExportPass = pass
+                val date = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.ROOT).format(java.util.Date())
+                exportLauncher.launch("sshtunnelvpn-servers-$date.json")
+            },
+        )
+    }
+    if (importBlob != null) {
+        ImportPassphraseDialog(
+            wrong = importWrong,
+            busy = busy,
+            onDismiss = vm::cancelImport,
+            onConfirm = vm::decryptImport,
+        )
     }
 
     deleting?.let { p ->
@@ -235,6 +307,7 @@ private fun ProfileRow(
     probe: Probe,
     liveRtt: Long?,
     exit: IpInfo?,
+    ipv6: Boolean?,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     onCheckExit: () -> Unit,
@@ -303,6 +376,7 @@ private fun ProfileRow(
                         style = MaterialTheme.typography.labelSmall, color = muted,
                         modifier = Modifier.padding(start = 4.dp),
                     )
+                    Ipv6Badge(ipv6)
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
@@ -341,4 +415,100 @@ private fun ProfileRow(
             }
         }
     }
+}
+
+/** IPv6 能力標記:✓ 可用 / ✗ 不可用 / ? 未測;另給讀螢幕軟體完整描述。 */
+@Composable
+private fun Ipv6Badge(ipv6: Boolean?) {
+    val (mark, desc, color) = when (ipv6) {
+        true -> Triple("✓", stringResource(R.string.ipv6_badge_yes), MaterialTheme.colorScheme.primary)
+        false -> Triple("✗", stringResource(R.string.ipv6_badge_no), MaterialTheme.colorScheme.error)
+        null -> Triple("?", stringResource(R.string.ipv6_badge_unknown), MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    Text(
+        " · IPv6 $mark",
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+        modifier = Modifier.clearAndSetSemantics { contentDescription = desc },
+    )
+}
+
+@Composable
+private fun ExportDialog(onDismiss: () -> Unit, onConfirm: (CharArray?) -> Unit) {
+    var includeSecrets by rememberSaveable { mutableStateOf(false) }
+    var pass by remember { mutableStateOf("") }
+    var pass2 by remember { mutableStateOf("") }
+    val tooShort = includeSecrets && pass.length < ProfileBackup.MIN_PASSPHRASE
+    val mismatch = includeSecrets && pass != pass2
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.backup_export)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.backup_export_body), style = MaterialTheme.typography.bodyMedium)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Checkbox(checked = includeSecrets, onCheckedChange = { includeSecrets = it })
+                    Text(stringResource(R.string.backup_include_secrets))
+                }
+                if (includeSecrets) {
+                    Text(stringResource(R.string.backup_secrets_hint), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(
+                        value = pass, onValueChange = { pass = it }, singleLine = true,
+                        label = { Text(stringResource(R.string.backup_passphrase)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = pass.isNotEmpty() && tooShort,
+                        supportingText = { Text(stringResource(R.string.backup_passphrase_min, ProfileBackup.MIN_PASSPHRASE)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = pass2, onValueChange = { pass2 = it }, singleLine = true,
+                        label = { Text(stringResource(R.string.backup_passphrase_confirm)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = pass2.isNotEmpty() && mismatch,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !tooShort && !mismatch,
+                onClick = { onConfirm(if (includeSecrets) pass.toCharArray() else null) },
+            ) { Text(stringResource(R.string.backup_export_action)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+@Composable
+private fun ImportPassphraseDialog(wrong: Boolean, busy: Boolean, onDismiss: () -> Unit, onConfirm: (CharArray) -> Unit) {
+    var pass by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.backup_import)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.backup_import_encrypted), style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = pass, onValueChange = { pass = it }, singleLine = true,
+                    label = { Text(stringResource(R.string.backup_passphrase)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    isError = wrong,
+                    supportingText = if (wrong) { { Text(stringResource(R.string.backup_wrong_passphrase)) } } else null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = pass.isNotEmpty() && !busy, onClick = { onConfirm(pass.toCharArray()) }) {
+                Text(stringResource(R.string.backup_import_action))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }

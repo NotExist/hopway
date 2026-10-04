@@ -38,6 +38,7 @@ data class IpInfoStore(
 class IpInfoRepository(private val store: DataStore<IpInfoStore>) {
     val data: Flow<IpInfoStore> = store.data
     val exits: Flow<Map<String, IpInfo>> = store.data.map { it.exits }
+    val ipv6: Flow<Map<String, Boolean>> = store.data.map { it.ipv6 }
 
     private val inflight = Mutex()
 
