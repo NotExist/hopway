@@ -16,8 +16,12 @@ jobs:
       - uses: ./.github/actions/android-setup
 
       # GitHub expressions 不支援算術,在 shell 算好寫入環境變數
-      - name: Version code
-        run: echo "VERSION_CODE=$((VERSION_CODE_BASE + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+      - name: Version code + file name
+        run: |
+          VERSION_CODE=$((VERSION_CODE_BASE + ${{ github.run_number }}))
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          # 檔名:版本-變體-versionCode-建置時間(台灣時間)-commit
+          echo "APK_NAME=SSHTunnelVPN-0.1.0-debug-${VERSION_CODE}-$(TZ=Asia/Taipei date +%Y%m%d-%H%M)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
       # 固定 debug 金鑰:簽章不變才能覆蓋安裝、保留 App 資料(伺服器設定等)
       - name: Debug signing key
@@ -34,7 +38,7 @@ jobs:
         run: |
           ./gradlew --stacktrace -PversionCode="$VERSION_CODE" :app:assembleDebug
           mkdir -p dist
-          cp app/build/outputs/apk/debug/*.apk "dist/SSHTunnelVPN-debug-0.1.0-${VERSION_CODE}.apk"
+          cp app/build/outputs/apk/debug/*.apk "dist/${APK_NAME}.apk"
 
       # 確認 APK 真的用固定金鑰簽章(比對公鑰 modulus),否則覆蓋安裝會失敗
       - name: Verify signature
@@ -52,6 +56,6 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: SSHTunnelVPN-debug-${{ env.VERSION_CODE }}
+          name: ${{ env.APK_NAME }}
           path: dist/*.apk
           if-no-files-found: error

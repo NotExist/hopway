@@ -41,6 +41,7 @@ Builds run on GitHub Actions; each workflow has exactly one purpose, selected by
 
 Shared setup (Go, JDK 21, Android platform/NDK, Gradle cache) lives in `.github/actions/android-setup`.
 `versionName` is fixed at `0.1.0`; `versionCode` = 100 + the workflow's run number, so every build increases it.
+APK / artifact names: `SSHTunnelVPN-0.1.0-debug-<versionCode>-<yyyyMMdd-HHmm Asia/Taipei>-<sha7>` and `SSHTunnelVPN-<tag>-release-<versionCode>-<yyyyMMdd-HHmm>`.
 The fixed debug key lets new debug builds install over old ones without losing app data.
 
 Toolchain used by CI: Go (from `core/go.mod`), JDK 21, Android platform 37, NDK 28.2.13676358.

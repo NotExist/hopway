@@ -19,8 +19,12 @@ jobs:
       - uses: ./.github/actions/android-setup
 
       # GitHub expressions 不支援算術,在 shell 算好寫入環境變數
-      - name: Version code
-        run: echo "VERSION_CODE=$((VERSION_CODE_BASE + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+      - name: Version code + file name
+        run: |
+          VERSION_CODE=$((VERSION_CODE_BASE + ${{ github.run_number }}))
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          # 檔名:tag-變體-versionCode-建置時間(台灣時間)
+          echo "APK_NAME=SSHTunnelVPN-${GITHUB_REF_NAME}-release-${VERSION_CODE}-$(TZ=Asia/Taipei date +%Y%m%d-%H%M)" >> "$GITHUB_ENV"
 
       - name: Release signing key
         env:
@@ -40,7 +44,7 @@ jobs:
         run: |
           ./gradlew --stacktrace -PversionCode="$VERSION_CODE" :app:assembleRelease
           mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk "dist/SSHTunnelVPN-${GITHUB_REF_NAME}.apk"
+          cp app/build/outputs/apk/release/*.apk "dist/${APK_NAME}.apk"
 
       - uses: softprops/action-gh-release@v3
         with:
