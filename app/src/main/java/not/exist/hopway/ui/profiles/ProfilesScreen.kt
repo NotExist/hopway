@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Password
@@ -375,20 +376,29 @@ private fun ProfileRow(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                     Icon(
-                        if (p.authType == AuthType.PASSWORD) Icons.Outlined.Password else Icons.Outlined.Key,
+                        when {
+                            !p.isSsh -> Icons.Outlined.Hub
+                            p.authType == AuthType.PASSWORD -> Icons.Outlined.Password
+                            else -> Icons.Outlined.Key
+                        },
                         null, Modifier.size(14.dp), tint = muted,
                     )
+                    val authLabel = when (p.authType) {
+                        AuthType.PASSWORD -> stringResource(R.string.auth_password)
+                        AuthType.KEY -> stringResource(R.string.auth_key)
+                        AuthType.KEY_AND_PASSWORD -> stringResource(R.string.auth_key_password)
+                    }
+                    val socksAuth = stringResource(R.string.socks_with_auth)
                     Text(
                         buildString {
-                            append(
-                                when (p.authType) {
-                                    AuthType.PASSWORD -> stringResource(R.string.auth_password)
-                                    AuthType.KEY -> stringResource(R.string.auth_key)
-                                    AuthType.KEY_AND_PASSWORD -> stringResource(R.string.auth_key_password)
-                                },
-                            )
-                            append(" · ").append(connectionsLabel)
-                            if (p.udpgwEnabled) append(" · UDP")
+                            if (p.isSsh) {
+                                append(authLabel)
+                                append(" · ").append(connectionsLabel)
+                                if (p.udpgwEnabled) append(" · UDP")
+                            } else {
+                                append("SOCKS5")
+                                if (p.username.isNotEmpty()) append(" · ").append(socksAuth)
+                            }
                         },
                         style = MaterialTheme.typography.labelSmall, color = muted,
                         modifier = Modifier.padding(start = 4.dp),

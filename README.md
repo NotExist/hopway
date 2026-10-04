@@ -58,6 +58,17 @@ The Go tests use a second gVisor stack as the "app", so they cover the whole pat
 TCP payload integrity (8 × 2 MB in both directions), two parallel SSH connections, DNS pipelining and caching,
 udpgw, SOCKS5, reconnect after the server drops the connection, auth failure, host-key rejection, and public-key auth with an encrypted key.
 
+## Outbound types
+
+| Type | TCP | DNS | Other UDP | Encryption | Health / RTT |
+|---|---|---|---|---|---|
+| SSH | direct-tcpip, N parallel connections | DNS-over-TCP through the server | badvpn-udpgw (optional) | SSH | keepalive@openssh.com |
+| SOCKS5 | CONNECT (names resolved by the proxy) | DNS-over-TCP through the proxy | not yet (rejected → apps fall back to TCP) | **none** | periodic connect + greeting |
+
+SOCKS5 supports no-auth and username/password (RFC 1929); a wrong login stops with an error instead of retrying.
+Everything above the outbound — Happy Eyeballs to reach it, IPv4/IPv6 probing and filtering, connect-then-handshake,
+DNS cache, public-address card, diagnostics — works the same for both types.
+
 ## IPv4 / IPv6 — no family is assumed
 
 Neither IPv4 nor IPv6 is assumed to exist, on the phone's network or on the SSH server:

@@ -40,7 +40,7 @@
     <string name="stat_total">累計 %1$s</string>
     <string name="stat_latency">延遲</string>
     <string name="stat_connections">TCP 使用中 / 累計</string>
-    <string name="stat_ssh_links">SSH 連線</string>
+    <string name="stat_ssh_links">上游連線</string>
     <string name="stat_dns">DNS 查詢 · 快取命中</string>
     <string name="stat_udp">UDP 工作階段</string>
     <string name="stat_server">伺服器</string>
@@ -225,7 +225,7 @@
     <string name="action_copy_all">全部複製</string>
     <string name="title_diagnostics">連線診斷</string>
     <string name="diag_checked_at">查詢時間 %1$s(短暫登入 SSH)</string>
-    <string name="diag_ssh">SSH</string>
+    <string name="diag_ssh">連線</string>
     <string name="diag_handshake">交握</string>
     <string name="diag_host_key">主機金鑰</string>
     <string name="diag_families">伺服器對外能力與出口</string>
@@ -244,8 +244,8 @@
     <string name="addr_v6_blocked_no_server">已封鎖——伺服器無 IPv6</string>
     <string name="addr_v6_blocked_setting">依設定封鎖(只用 IPv4)</string>
     <string name="addr_v6_blocked_probing">已封鎖 · 偵測伺服器中…</string>
-    <string name="stat_ssh_links_detail">%2$d 條 SSH 連線中有 %1$d 條存活</string>
-    <string name="stat_ssh_links_help">與伺服器之間的平行 SSH 連線。存活數少於總數代表有一條斷線、正在重連,期間吞吐量會下降。</string>
+    <string name="stat_ssh_links_detail">%2$d 條上游連線中有 %1$d 條存活</string>
+    <string name="stat_ssh_links_help">SSH:與伺服器之間的平行 SSH 連線,存活數少於總數代表有一條斷線、正在重連,期間吞吐量會下降。SOCKS5:代理通過定期健康檢查時為 1/1,無法連線時為 0/1。</string>
     <string name="stat_dial_failures_help">伺服器端無法連到目的地的連線數(被拒、逾時,或伺服器不支援該協定)。偶爾增加屬正常背景雜訊:失效的追蹤網域、App 同時嘗試多個位址等。若持續快速增加則可能有問題。將日誌等級設為「偵錯」可看到每一筆失敗與原因。</string>
     <string name="stat_udp_short">UDP 使用中 / 丟棄</string>
     <string name="stat_udp_help">沒有 udpgw 時只有 DNS 走 UDP,其他 UDP(多半是 QUIC)會被立即拒絕,App 會改走 TCP。遊戲或通話不通時,「丟棄」持續增加就是原因。</string>
@@ -254,4 +254,8 @@
     <string name="stat_tcp_help">目前正在轉送的 TCP 連線數。數字異常地高,代表有 App 正在大量開連線。</string>
     <string name="pref_log_owners">記錄連線歸屬(偵錯)</string>
     <string name="pref_log_owners_summary">在日誌記錄每條新連線(含 DNS 查詢)是哪個 App 開的(Android 10 以上)。會產生大量日誌,用完請關閉。下次連線時生效。</string>
+    <string name="field_username_optional">帳號(選填)</string>
+    <string name="field_password_optional">密碼(選填)</string>
+    <string name="socks_with_auth">需登入</string>
+    <string name="socks_warning">SOCKS5 不加密:手機到代理之間的流量可能在網路上被讀取或竄改,請只在信任的網路與代理上使用。目前除 DNS 外不轉送 UDP(App 會改走 TCP)。</string>
 </resources>

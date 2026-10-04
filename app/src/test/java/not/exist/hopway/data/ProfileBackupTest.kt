@@ -111,13 +111,4 @@ class ProfileBackupTest {
         assertEquals("stale selection -> first", "a", ProfileBackup.selectionAfterImport("deleted", list))
         assertEquals(null, ProfileBackup.selectionAfterImport(null, emptyList()))
     }
-
-    @Test
-    fun legacyFormatFromBeforeRenameStillImports() {
-        val legacy = ProfileBackup.export(listOf(a), emptyList(), null)
-            .replace("\"format\":\"hopway-servers\"", "\"format\":\"sshtunnelvpn-servers\"")
-        assertTrue(legacy.contains("sshtunnelvpn-servers"))
-        val p = (ProfileBackup.parse(legacy) as ProfileBackup.Parsed.Plain).payload
-        assertEquals(listOf("a"), p.profiles.map { it.id })
-    }
 }

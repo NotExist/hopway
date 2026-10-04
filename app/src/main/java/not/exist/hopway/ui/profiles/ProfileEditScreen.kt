@@ -78,6 +78,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import not.exist.hopway.R
 import not.exist.hopway.container
 import not.exist.hopway.data.AuthType
+import not.exist.hopway.data.OutboundType
 import not.exist.hopway.ui.components.BackTopBar
 import not.exist.hopway.ui.components.SectionHeader
 import kotlinx.coroutines.launch
@@ -136,6 +137,26 @@ fun ProfileEditScreen(profileId: String?, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            val typeOptions = listOf(OutboundType.SSH to "SSH", OutboundType.SOCKS5 to "SOCKS5")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                typeOptions.forEachIndexed { i, (type, label) ->
+                    SegmentedButton(
+                        selected = p.type == type,
+                        onClick = {
+                            vm.update {
+                                // port 仍是另一類型的預設值時,跟著換成這個類型的預設值
+                                val port = when {
+                                    type == OutboundType.SOCKS5 && it.port == 22 -> 1080
+                                    type == OutboundType.SSH && it.port == 1080 -> 22
+                                    else -> it.port
+                                }
+                                it.copy(type = type, port = port)
+                            }
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(i, typeOptions.size),
+                    ) { Text(label) }
+                }
+            }
             OutlinedTextField(
                 value = p.name, onValueChange = { v -> vm.update { it.copy(name = v) } },
                 label = { Text(stringResource(R.string.field_name)) },
@@ -161,91 +182,105 @@ fun ProfileEditScreen(profileId: String?, onBack: () -> Unit) {
             }
             OutlinedTextField(
                 value = p.username, onValueChange = { v -> vm.update { it.copy(username = v.trim()) } },
-                label = { Text(stringResource(R.string.field_username)) },
+                label = { Text(stringResource(if (p.isSsh) R.string.field_username else R.string.field_username_optional)) },
                 isError = err("username"), singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            SectionHeader(stringResource(R.string.section_auth))
-            val authOptions = listOf(
-                AuthType.PASSWORD to R.string.auth_password,
-                AuthType.KEY to R.string.auth_key,
-                AuthType.KEY_AND_PASSWORD to R.string.auth_key_password,
-            )
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                authOptions.forEachIndexed { i, (type, label) ->
-                    SegmentedButton(
-                        selected = p.authType == type,
-                        onClick = { vm.update { it.copy(authType = type) } },
-                        shape = SegmentedButtonDefaults.itemShape(i, authOptions.size),
-                    ) { Text(stringResource(label), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            if (p.isSsh) {
+                SectionHeader(stringResource(R.string.section_auth))
+                val authOptions = listOf(
+                    AuthType.PASSWORD to R.string.auth_password,
+                    AuthType.KEY to R.string.auth_key,
+                    AuthType.KEY_AND_PASSWORD to R.string.auth_key_password,
+                )
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    authOptions.forEachIndexed { i, (type, label) ->
+                        SegmentedButton(
+                            selected = p.authType == type,
+                            onClick = { vm.update { it.copy(authType = type) } },
+                            shape = SegmentedButtonDefaults.itemShape(i, authOptions.size),
+                        ) { Text(stringResource(label), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
                 }
-            }
 
-            if (p.authType != AuthType.PASSWORD) {
-                OutlinedTextField(
-                    value = p.privateKey, onValueChange = { v -> vm.update { it.copy(privateKey = v) } },
-                    label = { Text(stringResource(R.string.field_private_key)) },
-                    placeholder = { Text("-----BEGIN OPENSSH PRIVATE KEY-----", fontFamily = FontFamily.Monospace) },
-                    isError = err("privateKey") || vm.keyError != null,
-                    supportingText = vm.keyError?.let { { Text(it) } }
-                        ?: vm.keyInfo?.let { { Text(it.fingerprint, fontFamily = FontFamily.Monospace) } },
-                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    minLines = 3, maxLines = 6,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) }) {
-                        Icon(Icons.Outlined.FileOpen, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.action_import_key))
-                    }
-                    var genMenu by remember { mutableStateOf(false) }
-                    OutlinedButton(onClick = { genMenu = true }) {
-                        Icon(Icons.Outlined.AutoAwesome, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.action_generate_key))
-                        DropdownMenu(expanded = genMenu, onDismissRequest = { genMenu = false }) {
-                            listOf("ed25519" to "Ed25519", "ecdsa" to "ECDSA P-256", "rsa" to "RSA 3072").forEach { (k, l) ->
-                                DropdownMenuItem(text = { Text(l) }, onClick = { genMenu = false; vm.generateKey(k) })
-                            }
+                if (p.authType != AuthType.PASSWORD) {
+                    OutlinedTextField(
+                        value = p.privateKey, onValueChange = { v -> vm.update { it.copy(privateKey = v) } },
+                        label = { Text(stringResource(R.string.field_private_key)) },
+                        placeholder = { Text("-----BEGIN OPENSSH PRIVATE KEY-----", fontFamily = FontFamily.Monospace) },
+                        isError = err("privateKey") || vm.keyError != null,
+                        supportingText = vm.keyError?.let { { Text(it) } }
+                            ?: vm.keyInfo?.let { { Text(it.fingerprint, fontFamily = FontFamily.Monospace) } },
+                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        minLines = 3, maxLines = 6,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) }) {
+                            Icon(Icons.Outlined.FileOpen, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.action_import_key))
                         }
-                    }
-                }
-                vm.keyInfo?.let { info ->
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text(stringResource(R.string.label_public_key), style = MaterialTheme.typography.labelMedium)
-                            SelectionContainer {
-                                Text(info.publicKey, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            }
-                            Row {
-                                TextButton(onClick = { copy(info.publicKey) }) {
-                                    Icon(Icons.Outlined.ContentCopy, null, Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(stringResource(R.string.action_copy))
-                                }
-                                TextButton(onClick = { share(info.publicKey) }) {
-                                    Icon(Icons.Outlined.Share, null, Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(stringResource(R.string.action_share))
+                        var genMenu by remember { mutableStateOf(false) }
+                        OutlinedButton(onClick = { genMenu = true }) {
+                            Icon(Icons.Outlined.AutoAwesome, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.action_generate_key))
+                            DropdownMenu(expanded = genMenu, onDismissRequest = { genMenu = false }) {
+                                listOf("ed25519" to "Ed25519", "ecdsa" to "ECDSA P-256", "rsa" to "RSA 3072").forEach { (k, l) ->
+                                    DropdownMenuItem(text = { Text(l) }, onClick = { genMenu = false; vm.generateKey(k) })
                                 }
                             }
                         }
                     }
+                    vm.keyInfo?.let { info ->
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(stringResource(R.string.label_public_key), style = MaterialTheme.typography.labelMedium)
+                                SelectionContainer {
+                                    Text(info.publicKey, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                }
+                                Row {
+                                    TextButton(onClick = { copy(info.publicKey) }) {
+                                        Icon(Icons.Outlined.ContentCopy, null, Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(stringResource(R.string.action_copy))
+                                    }
+                                    TextButton(onClick = { share(info.publicKey) }) {
+                                        Icon(Icons.Outlined.Share, null, Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(stringResource(R.string.action_share))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    SecretField(
+                        value = p.passphrase, onChange = { v -> vm.update { it.copy(passphrase = v) } },
+                        label = stringResource(R.string.field_passphrase), isError = false,
+                    )
                 }
-                SecretField(
-                    value = p.passphrase, onChange = { v -> vm.update { it.copy(passphrase = v) } },
-                    label = stringResource(R.string.field_passphrase), isError = false,
-                )
-            }
-            if (p.authType != AuthType.KEY) {
+                if (p.authType != AuthType.KEY) {
+                    SecretField(
+                        value = p.password, onChange = { v -> vm.update { it.copy(password = v) } },
+                        label = stringResource(R.string.field_password), isError = err("password"),
+                    )
+                }
+            } else {
                 SecretField(
                     value = p.password, onChange = { v -> vm.update { it.copy(password = v) } },
-                    label = stringResource(R.string.field_password), isError = err("password"),
+                    label = stringResource(R.string.field_password_optional), isError = false,
                 )
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                    Text(
+                        stringResource(R.string.socks_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
             }
 
             Row(
@@ -260,28 +295,32 @@ fun ProfileEditScreen(profileId: String?, onBack: () -> Unit) {
             HorizontalDivider()
             AnimatedVisibility(advanced) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LabeledSlider(
-                        stringResource(R.string.field_connections), stringResource(R.string.field_connections_hint),
-                        p.connections, 1..6,
-                    ) { v -> vm.update { it.copy(connections = v) } }
+                    if (p.isSsh) {
+                        LabeledSlider(
+                            stringResource(R.string.field_connections), stringResource(R.string.field_connections_hint),
+                            p.connections, 1..6,
+                        ) { v -> vm.update { it.copy(connections = v) } }
+                    }
                     LabeledSlider(
                         stringResource(R.string.field_keepalive), stringResource(R.string.field_keepalive_hint),
                         p.keepaliveSec, 5..120, suffix = " s",
                     ) { v -> vm.update { it.copy(keepaliveSec = v) } }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.field_udpgw), style = MaterialTheme.typography.bodyLarge)
-                            Text(stringResource(R.string.field_udpgw_hint), style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (p.isSsh) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.field_udpgw), style = MaterialTheme.typography.bodyLarge)
+                                Text(stringResource(R.string.field_udpgw_hint), style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(checked = p.udpgwEnabled, onCheckedChange = { v -> vm.update { it.copy(udpgwEnabled = v) } })
                         }
-                        Switch(checked = p.udpgwEnabled, onCheckedChange = { v -> vm.update { it.copy(udpgwEnabled = v) } })
-                    }
-                    if (p.udpgwEnabled) {
-                        OutlinedTextField(
-                            value = p.udpgwAddress, onValueChange = { v -> vm.update { it.copy(udpgwAddress = v.trim()) } },
-                            label = { Text(stringResource(R.string.field_udpgw_address)) }, singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        if (p.udpgwEnabled) {
+                            OutlinedTextField(
+                                value = p.udpgwAddress, onValueChange = { v -> vm.update { it.copy(udpgwAddress = v.trim()) } },
+                                label = { Text(stringResource(R.string.field_udpgw_address)) }, singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
                 }
             }
@@ -381,7 +420,9 @@ private fun TestResultCard(state: TestState, probe: not.exist.hopway.data.IpInfo
                         Text(stringResource(R.string.test_ok), style = MaterialTheme.typography.titleSmall)
                         Text(r.serverVersion, style = MaterialTheme.typography.bodySmall)
                         Text(stringResource(R.string.test_timing, r.handshakeMs, r.rttMillis), style = MaterialTheme.typography.bodySmall)
-                        Text("${r.hostKeyType} ${r.fingerprint}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                        if (r.fingerprint.isNotEmpty()) {
+                            Text("${r.hostKeyType} ${r.fingerprint}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                        }
                         FamilyRow(v6 = false, capable = probe?.ipv4, exit = probe?.exit4)
                         FamilyRow(v6 = true, capable = probe?.ipv6, exit = probe?.exit6)
                         if (r.getUDPGWOK()) Text(stringResource(R.string.test_udpgw_ok), style = MaterialTheme.typography.bodySmall)

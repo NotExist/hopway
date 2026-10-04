@@ -4,6 +4,7 @@ import not.exist.hopway.data.AppSettings
 import not.exist.hopway.data.AuthType
 import not.exist.hopway.data.HostKeyVerdict
 import not.exist.hopway.data.IpInfoRepository
+import not.exist.hopway.data.OutboundType
 import not.exist.hopway.data.KnownHostsRepository
 import not.exist.hopway.data.Profile
 import not.exist.hopway.core.Platform
@@ -35,15 +36,27 @@ object EngineConfig {
     ): String = buildJsonObject {
         put("host", p.host.trim())
         put("port", p.port)
-        put("user", p.username.trim())
-        if (p.authType != AuthType.KEY) put("password", p.password)
-        if (p.authType != AuthType.PASSWORD) {
-            put("privateKey", p.privateKey)
-            put("passphrase", p.passphrase)
-        }
-        put("connections", p.connections)
         put("keepaliveSec", p.keepaliveSec)
-        if (p.udpgwEnabled && p.udpgwAddress.isNotBlank()) put("udpgw", p.udpgwAddress.trim())
+        when (p.type) {
+            OutboundType.SSH -> {
+                put("type", "ssh")
+                put("user", p.username.trim())
+                if (p.authType != AuthType.KEY) put("password", p.password)
+                if (p.authType != AuthType.PASSWORD) {
+                    put("privateKey", p.privateKey)
+                    put("passphrase", p.passphrase)
+                }
+                put("connections", p.connections)
+                if (p.udpgwEnabled && p.udpgwAddress.isNotBlank()) put("udpgw", p.udpgwAddress.trim())
+            }
+            OutboundType.SOCKS5 -> {
+                put("type", "socks5")
+                if (p.username.isNotBlank()) {
+                    put("user", p.username.trim())
+                    put("password", p.password)
+                }
+            }
+        }
         if (s != null) {
             put("mtu", s.mtu)
             put("dnsUpstream", s.dnsUpstream.trim())

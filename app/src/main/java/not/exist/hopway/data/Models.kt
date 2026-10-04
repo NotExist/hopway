@@ -8,9 +8,14 @@ enum class AuthType { PASSWORD, KEY, KEY_AND_PASSWORD }
 
 enum class Credential { PASSWORD, PRIVATE_KEY }
 
+/** 出口類型。SOCKS5 不加密,帳密選填(RFC 1929)。 */
+@Serializable
+enum class OutboundType { SSH, SOCKS5 }
+
 @Serializable
 data class Profile(
     val id: String = UUID.randomUUID().toString(),
+    val type: OutboundType = OutboundType.SSH,
     val name: String = "",
     val host: String = "",
     val port: Int = 22,
@@ -25,15 +30,21 @@ data class Profile(
     val udpgwEnabled: Boolean = false,
     val udpgwAddress: String = "127.0.0.1:7300",
 ) {
-    val displayName: String get() = name.ifBlank { "$username@$host" }
+    val isSsh: Boolean get() = type == OutboundType.SSH
 
-    /** 依認證方式缺少的帳密(例如匯入不含帳密的備份後);空集合表示齊全。 */
+    val displayName: String get() = name.ifBlank { if (isSsh) "$username@$host" else "$host:$port" }
+
+    /** 依認證方式缺少的帳密(例如匯入不含帳密的備份後);空集合表示齊全。SOCKS5 帳密選填,永遠齊全。 */
     val missingCredentials: Set<Credential>
-        get() = buildSet {
+        get() = if (!isSsh) emptySet() else buildSet {
             if (authType != AuthType.KEY && password.isEmpty()) add(Credential.PASSWORD)
             if (authType != AuthType.PASSWORD && privateKey.isBlank()) add(Credential.PRIVATE_KEY)
         }
-    val endpoint: String get() = if (port == 22) "$username@$host" else "$username@$host:$port"
+    val endpoint: String
+        get() = when (type) {
+            OutboundType.SSH -> if (port == 22) "$username@$host" else "$username@$host:$port"
+            OutboundType.SOCKS5 -> "socks5://" + (if (username.isNotEmpty()) "$username@" else "") + "$host:$port"
+        }
 }
 
 @Serializable

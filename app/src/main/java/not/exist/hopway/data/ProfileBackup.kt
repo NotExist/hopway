@@ -56,8 +56,6 @@ class WrongPassphraseException : Exception("wrong passphrase or corrupted file")
 
 object ProfileBackup {
     const val FORMAT = "hopway-servers"
-    /** 改名前(SSH Tunnel VPN)的匯出檔格式名,仍可匯入。 */
-    private const val LEGACY_FORMAT = "sshtunnelvpn-servers"
     const val MIN_PASSPHRASE = 8
     private const val KDF = "PBKDF2WithHmacSHA256"
     private const val ITERATIONS = 310_000
@@ -90,7 +88,7 @@ object ProfileBackup {
     fun parse(json: String): Parsed {
         val f = runCatching { AppJson.decodeFromString(BackupFile.serializer(), json) }
             .getOrElse { throw IllegalArgumentException("not a server list file", it) }
-        require(f.format == FORMAT || f.format == LEGACY_FORMAT) { "not a server list file" }
+        require(f.format == FORMAT) { "not a server list file" }
         require(f.version == 1) { "unsupported file version ${f.version}" }
         f.encrypted?.let { return Parsed.Encrypted(it) }
         return Parsed.Plain(requireNotNull(f.payload) { "empty server list file" })

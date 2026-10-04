@@ -108,7 +108,7 @@ class DiagnosticsViewModel(private val c: AppContainer, private val id: String) 
         error?.let { appendLine("ERROR: $it") }
         result?.let { r ->
             appendLine("SSH: ${r.serverVersion}  handshake ${r.handshakeMs} ms  RTT ${r.rttMillis} ms")
-            appendLine("Host key: ${r.hostKeyType} ${r.fingerprint}")
+            if (r.fingerprint.isNotEmpty()) appendLine("Host key: ${r.hostKeyType} ${r.fingerprint}")
             appendLine("IPv4: ${famText(probe?.ipv4)}  IPv6: ${famText(probe?.ipv6)}")
             appendLine("--- ipinfo IPv4 ---")
             appendLine(r.exitInfo.ifEmpty { r.exitError })
@@ -191,8 +191,11 @@ fun DiagnosticsScreen(profileId: String, onBack: () -> Unit) {
                             KV(stringResource(R.string.stat_server), r.serverVersion)
                             KV(stringResource(R.string.diag_handshake), "${r.handshakeMs} ms")
                             KV(stringResource(R.string.stat_latency), "${r.rttMillis} ms")
-                            KV(stringResource(R.string.diag_host_key), r.hostKeyType)
-                            Text(r.fingerprint, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                            // SOCKS5 沒有主機金鑰
+                            if (r.fingerprint.isNotEmpty()) {
+                                KV(stringResource(R.string.diag_host_key), r.hostKeyType)
+                                Text(r.fingerprint, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                 }

@@ -29,7 +29,7 @@
 1. 實機測試:連線、切換網路自動重連、分 App 代理、QS 磚、永久連線 VPN、host key 變更對話框、P1 的延遲/出口顯示;**順便驗證 `getConnectionOwnerUid` 對 DNS 的歸屬**(P2 前置)。
 2. P2:引擎多出口 + per-app 指定(伺服器/直連/封鎖)、路由熱更新、per-app 流量統計(含「系統 DNS」獨立一列)。
 3. 正式簽章:設定 repo secrets `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`,推 `v*` tag 自動發 Release。
-4. **未來方向(參考)**:通用出口(SOCKS5 / HTTP 代理也能當出口),見 `docs/design-generic-outbound.md`;建議在 P2 多出口骨架後進行。涉及改名——**applicationId 若要改,須在發布正式版前決定**。
+4. **通用出口**:SOCKS5 已完成(TCP、DNS;UDP ASSOCIATE 待做);HTTP 代理未做,見 `docs/design-generic-outbound.md`;建議在 P2 多出口骨架後進行。涉及改名——**applicationId 若要改,須在發布正式版前決定**。
 5. P3 群組;之後:設定檔匯入/匯出、`ssh://` URI 分享、Jump host。網域規則暫緩(user 決定先只做 per-app)。
 
 ## 里程碑
@@ -49,3 +49,4 @@
 - 2026-10-04:記錄「通用出口」參考設計(user 期望的長期方向,暫不實作)。
 - 2026-10-04:全面改名 Hopway(顯示名、repo、package、module、applicationId `not.exist.hopway`、識別字串、APK 檔名);舊格式備份檔仍可匯入。舊 applicationId 的 debug 版需另行解除安裝。
 - 2026-10-04:本機資料夾改為 `/workspace/_self/hopway`、Claude 專案目錄改為 `~/.claude/projects/-workspace--self-hopway`(transcript 與記憶);舊路徑皆留符號連結以免中斷,確認無用後可刪。接續請 `cd /workspace/_self/hopway && claude -c`。
+- 2026-10-05:新增 SOCKS5 出口(Go `outbound` 介面抽出,SSH 連線池與 SOCKS5 各為一種實作;帳密選填、健康檢查量 RTT、明確拒絕回 RST/判定協定能力);編輯畫面可選類型;移除改名前匯出格式相容(user 指示)。

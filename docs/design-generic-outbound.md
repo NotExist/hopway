@@ -1,6 +1,6 @@
 # 參考:通用出口(SSH / SOCKS5 / HTTP 代理)
 
-狀態:參考,未排入實作 · 2026-10-04
+狀態:SOCKS5 出口已實作(TCP、DNS;UDP ASSOCIATE 待做)· 2026-10-05;HTTP 代理未做
 
 ## 動機
 

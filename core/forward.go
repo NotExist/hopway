@@ -139,9 +139,12 @@ func familyLabel(a netip.Addr) string {
 // describeDialError 把連線失敗分類成可讀的原因,寫進偵錯日誌供排查。
 func describeDialError(err error) string {
 	var oce *ssh.OpenChannelError
+	var se *socksReplyError
 	switch {
 	case errors.As(err, &oce):
 		return "rejected by server (" + oce.Message + ")"
+	case errors.As(err, &se):
+		return "rejected by proxy (" + se.Error() + ")"
 	case errors.Is(err, context.DeadlineExceeded):
 		return "timed out waiting for SSH channel"
 	default:

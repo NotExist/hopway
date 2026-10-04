@@ -97,9 +97,13 @@ class ProfileEditViewModel(private val c: AppContainer, private val id: String?)
             val p = profile
             if (p.host.isBlank()) add("host")
             if (p.port !in 1..65535) add("port")
-            if (p.username.isBlank()) add("username")
-            if (p.authType != AuthType.PASSWORD && p.privateKey.isBlank()) add("privateKey")
-            if (p.authType != AuthType.KEY && p.password.isEmpty()) add("password")
+            if (p.isSsh) {
+                if (p.username.isBlank()) add("username")
+                if (p.authType != AuthType.PASSWORD && p.privateKey.isBlank()) add("privateKey")
+                if (p.authType != AuthType.KEY && p.password.isEmpty()) add("password")
+            } else if (p.password.isNotEmpty() && p.username.isBlank()) {
+                add("username") // SOCKS5:帳密選填,但有密碼就必須有帳號
+            }
         }
 
     fun runTest() {

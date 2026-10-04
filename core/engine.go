@@ -22,7 +22,7 @@ type engine struct {
 	plat   Platform
 	log    *logger
 	cancel context.CancelFunc
-	pool   *sshPool
+	pool   outbound
 	dns    *dnsClient
 	udpgw  *udpgwClient
 	socks  *socksServer
@@ -85,7 +85,7 @@ func (e *engine) run(tunFd int) error {
 		vdns = a
 	}
 
-	e.pool = newSSHPool(e.cfg, e.plat, e.log, e.setState)
+	e.pool = newOutbound(e.cfg, e.plat, e.log, e.setState)
 	e.dns = newDNSClient(e.pool.Dial, e.cfg.dnsUpstreams, e.cfg.DNSCache, e.log)
 	if e.cfg.UDPGW != "" {
 		e.udpgw = newUDPGWClient(e.pool.Dial, e.cfg.UDPGW, e.log)
@@ -252,11 +252,9 @@ func GetStats() *Stats {
 	s.DNSCacheHits = e.dns.hits.Load()
 	s.RTTMillis = e.pool.rtt().Milliseconds()
 	s.SSHLive = int64(e.pool.liveCount())
-	s.SSHTotal = int64(len(e.pool.slots))
+	s.SSHTotal = int64(e.pool.total())
 	s.UptimeMillis = time.Since(e.start).Milliseconds()
-	if v, ok := e.pool.serverVersion.Load().(string); ok {
-		s.ServerVersion = v
-	}
+	s.ServerVersion = e.pool.version()
 	return s
 }
 
@@ -292,6 +290,29 @@ func TestConnection(configJSON string, p Platform) (*TestResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.connectTimeout()+5*time.Second)
 	defer cancel()
 	start := time.Now()
+	var dial func(context.Context, string) (net.Conn, error)
+	if cfg.Type == typeSOCKS5 {
+		// 代理:交握 = 連線+協商/認證;RTT 再量一次同樣的流程
+		d := &socksDialer{cfg: cfg, plat: p, log: log}
+		c, err := d.greet(ctx)
+		if err != nil {
+			var f *errFatal
+			if errors.As(err, &f) {
+				return nil, f.err
+			}
+			return nil, err
+		}
+		c.Close()
+		res.HandshakeMs = time.Since(start).Milliseconds()
+		res.ServerVersion = "SOCKS5"
+		t := time.Now()
+		if c2, err := d.greet(ctx); err == nil {
+			c2.Close()
+			res.RTTMillis = time.Since(t).Milliseconds()
+		}
+		dial = d.Dial
+		return finishTest(ctx, cfg, res, dial), nil
+	}
 	client, err := dialSSH(ctx, cfg, wrap, log)
 	if err != nil {
 		var f *errFatal
@@ -316,7 +337,12 @@ func TestConnection(configJSON string, p Platform) (*TestResult, error) {
 			c.Close()
 		}
 	}
-	dial := func(ctx context.Context, addr string) (net.Conn, error) { return client.DialContext(ctx, "tcp", addr) }
+	dial = func(ctx context.Context, addr string) (net.Conn, error) { return client.DialContext(ctx, "tcp", addr) }
+	return finishTest(ctx, cfg, res, dial), nil
+}
+
+// finishTest 是 SSH 與代理共用的後半段:兩協定能力探測,以及經出口查詢 IPv4 / IPv6 出口資訊。
+func finishTest(ctx context.Context, cfg *Config, res *TestResult, dial func(context.Context, string) (net.Conn, error)) *TestResult {
 	v4, v6 := probeBoth(ctx, dial)
 	res.IPv4, res.IPv6 = int64(v4), int64(v6)
 	if cfg.ExitCheckURL != "" {
@@ -325,7 +351,7 @@ func TestConnection(configJSON string, p Platform) (*TestResult, error) {
 	if cfg.ExitCheckURL6 != "" {
 		res.ExitInfo6, res.ExitError6 = fetchOrError(ctx, dial, cfg.ExitCheckURL6)
 	}
-	return res, nil
+	return res
 }
 
 type hostKeyCapture struct {

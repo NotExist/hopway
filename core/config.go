@@ -11,6 +11,8 @@ import (
 
 // Config 由 Kotlin 端以 JSON 傳入;欄位新增時保持向後相容(零值 = 預設)。
 type Config struct {
+	// Type 為出口類型:"ssh"(預設)或 "socks5"。
+	Type       string `json:"type,omitempty"`
 	Host       string `json:"host"`
 	Port       int    `json:"port"`
 	User       string `json:"user"`
@@ -59,11 +61,22 @@ func parseConfig(s string) (*Config, error) {
 	if c.Host == "" {
 		return nil, errors.New("host is empty")
 	}
-	if c.User == "" {
-		return nil, errors.New("user is empty")
-	}
-	if c.Port <= 0 || c.Port > 65535 {
-		c.Port = 22
+	switch c.Type {
+	case "", typeSSH:
+		c.Type = typeSSH
+		if c.User == "" {
+			return nil, errors.New("user is empty")
+		}
+		if c.Port <= 0 || c.Port > 65535 {
+			c.Port = 22
+		}
+	case typeSOCKS5:
+		// 帳號密碼選填
+		if c.Port <= 0 || c.Port > 65535 {
+			c.Port = 1080
+		}
+	default:
+		return nil, errors.New("unknown outbound type " + c.Type)
 	}
 	if c.Connections <= 0 {
 		c.Connections = 1

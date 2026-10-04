@@ -36,7 +36,7 @@ func probeFamily(ctx context.Context, dial func(context.Context, string) (net.Co
 	case err == nil:
 		c.Close()
 		return famYes
-	case errors.As(err, new(*ssh.OpenChannelError)):
+	case isRejection(err):
 		return famNo
 	default:
 		return famUnknown
@@ -215,4 +215,14 @@ func trimSpace(s string) string {
 		s = s[:len(s)-1]
 	}
 	return s
+}
+
+// isRejection 回報出口是否明確表示「連不到這個目的地」:SSH 的 OpenChannelError,
+// 或 SOCKS5 的明確拒絕回應。逾時、斷線等暫時性錯誤不算。
+func isRejection(err error) bool {
+	if errors.As(err, new(*ssh.OpenChannelError)) {
+		return true
+	}
+	var se *socksReplyError
+	return errors.As(err, &se) && se.definite()
 }
