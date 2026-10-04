@@ -13,6 +13,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import io.github.sshtunnelvpn.data.ProfileBackup
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -106,6 +110,8 @@ fun ProfilesScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
     val status by c.tunnel.status.collectAsStateWithLifecycle()
     val exits by c.ipInfo.exits.collectAsStateWithLifecycle(emptyMap())
     val ipv6Map by c.ipInfo.ipv6.collectAsStateWithLifecycle(emptyMap())
+    val ipv4Map by c.ipInfo.ipv4.collectAsStateWithLifecycle(emptyMap())
+    val exits6 by c.ipInfo.exits6.collectAsStateWithLifecycle(emptyMap())
     val importBlob by vm.importBlob.collectAsStateWithLifecycle()
     val importWrong by vm.importWrongPassphrase.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
@@ -237,8 +243,10 @@ fun ProfilesScreen(navigate: (Route) -> Unit, onBack: () -> Unit) {
                         selected = p.id == selectedId,
                         probe = probe,
                         liveRtt = live,
-                        exit = exits[p.id],
+                        exit = exits[p.id] ?: exits6[p.id],
+                        ipv4 = ipv4Map[p.id],
                         ipv6 = ipv6Map[p.id],
+                        onDiagnose = { navigate(Route.Diagnostics(p.id)) },
                         onSelect = { select(p) },
                         onEdit = { navigate(Route.EditProfile(p.id)) },
                         onCheckExit = { vm.checkExit(p) },
@@ -302,6 +310,7 @@ fun placeLabel(info: IpInfo?): String? {
     return listOfNotNull("${flagEmoji(cc)} $cc", info.city).joinToString(" · ")
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ProfileRow(
     p: Profile,
@@ -309,7 +318,9 @@ private fun ProfileRow(
     probe: Probe,
     liveRtt: Long?,
     exit: IpInfo?,
+    ipv4: Boolean?,
     ipv6: Boolean?,
+    onDiagnose: () -> Unit,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     onCheckExit: () -> Unit,
@@ -321,11 +332,14 @@ private fun ProfileRow(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val connectionsLabel = stringResource(R.string.profile_connections, p.connections)
     Card(
-        onClick = onSelect,
         colors = CardDefaults.cardColors(
             containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
         ),
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(CardDefaults.shape)
+            // 點一下選取;長按開診斷頁
+            .combinedClickable(onClick = onSelect, onLongClick = onDiagnose, onLongClickLabel = stringResource(R.string.action_diagnose)),
     ) {
         Row(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             RadioButton(selected = selected, onClick = onSelect)
@@ -379,7 +393,8 @@ private fun ProfileRow(
                         style = MaterialTheme.typography.labelSmall, color = muted,
                         modifier = Modifier.padding(start = 4.dp),
                     )
-                    Ipv6Badge(ipv6)
+                    FamilyBadge(false, ipv4)
+                    FamilyBadge(true, ipv6)
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
@@ -396,6 +411,11 @@ private fun ProfileRow(
                             text = { Text(stringResource(R.string.action_edit)) },
                             leadingIcon = { Icon(Icons.Outlined.Edit, null) },
                             onClick = { menu = false; onEdit() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_diagnose)) },
+                            leadingIcon = { Icon(Icons.Outlined.MonitorHeart, null) },
+                            onClick = { menu = false; onDiagnose() },
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.action_check_exit)) },
@@ -420,16 +440,12 @@ private fun ProfileRow(
     }
 }
 
-/** IPv6 能力標記:✓ 可用 / ✗ 不可用 / ? 未測;另給讀螢幕軟體完整描述。 */
+/** 協定能力標記:「 · IPv4 ✓」;讀螢幕軟體念出完整描述。 */
 @Composable
-private fun Ipv6Badge(ipv6: Boolean?) {
-    val (mark, desc, color) = when (ipv6) {
-        true -> Triple("✓", stringResource(R.string.ipv6_badge_yes), MaterialTheme.colorScheme.primary)
-        false -> Triple("✗", stringResource(R.string.ipv6_badge_no), MaterialTheme.colorScheme.error)
-        null -> Triple("?", stringResource(R.string.ipv6_badge_unknown), MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+private fun FamilyBadge(v6: Boolean, capable: Boolean?) {
+    val (mark, color, desc) = familyMark(capable, v6)
     Text(
-        " · IPv6 $mark",
+        " · ${if (v6) "IPv6" else "IPv4"} $mark",
         style = MaterialTheme.typography.labelSmall,
         color = color,
         modifier = Modifier.clearAndSetSemantics { contentDescription = desc },

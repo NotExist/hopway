@@ -15,6 +15,7 @@ import io.github.sshtunnelvpn.sshvpn.TestResult
 import io.github.sshtunnelvpn.tunnel.BasePlatform
 import io.github.sshtunnelvpn.tunnel.EngineOps
 import io.github.sshtunnelvpn.tunnel.HostKeyMismatch
+import io.github.sshtunnelvpn.tunnel.toProbe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,10 +41,8 @@ class ProfileEditViewModel(private val c: AppContainer, private val id: String?)
     var keyError by mutableStateOf<String?>(null)
         private set
     var generatedKey by mutableStateOf<KeyInfo?>(null)
-    var exit by mutableStateOf<IpInfo?>(null)
-        private set
-    /** 本次測試連線測得的伺服器 IPv6 能力(null = 未測或無法判定)。 */
-    var ipv6 by mutableStateOf<Boolean?>(null)
+    /** 本次測試連線取得的兩協定出口與伺服器能力(存檔時寫回)。 */
+    var probe by mutableStateOf<IpInfoRepository.Probe?>(null)
         private set
     private var original: Profile? = null
 
@@ -105,15 +104,13 @@ class ProfileEditViewModel(private val c: AppContainer, private val id: String?)
 
     fun runTest() {
         test = TestState.Running
-        exit = null
-        ipv6 = null
+        probe = null
         var mismatch: HostKeyMismatch? = null
         val platform = BasePlatform(c.knownHosts, persistHostKeys = false, onMismatch = { mismatch = it }, logs = c.logs)
         viewModelScope.launch {
-            test = EngineOps.test(profile, platform, IpInfoRepository.EXIT_URL).fold(
+            test = EngineOps.test(profile, platform, withExit = true).fold(
                 onSuccess = {
-                    exit = it.exitInfo.takeIf(String::isNotEmpty)?.let(IpInfoRepository::parse)
-                    ipv6 = ipv6Of(it.getIPv6())
+                    probe = it.toProbe()
                     TestState.Ok(it)
                 },
                 onFailure = { TestState.Failed(it.message ?: it.toString(), mismatch) },
@@ -134,8 +131,7 @@ class ProfileEditViewModel(private val c: AppContainer, private val id: String?)
         val o = original
         // 端點變了,舊的出口資訊不再可信;本次測試若有查到出口則直接記下
         if (o != null && (o.host != p.host || o.port != p.port || o.username != p.username)) c.ipInfo.forget(p.id)
-        exit?.let { c.ipInfo.recordExit(p.id, it) }
-        ipv6?.let { c.ipInfo.recordIpv6(p.id, it) }
+        probe?.let { c.ipInfo.record(p.id, it) }
         val s = c.settings.current()
         if (s.selectedProfileId == null || c.profiles.get(s.selectedProfileId) == null) {
             c.settings.update { it.copy(selectedProfileId = p.id) }

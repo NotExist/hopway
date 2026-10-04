@@ -21,6 +21,7 @@ type testSSHServer struct {
 	ln       net.Listener
 	cfg      *ssh.ServerConfig
 	redirect func(addr string) string
+	probeOK  string // 探測目的地預設導向的本機 listener
 	conns    atomic.Int64
 	mu       sync.Mutex
 	live     []net.Conn
@@ -55,6 +56,7 @@ func newTestSSHServer(t *testing.T, password string, authorized ssh.PublicKey) *
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.ln.Close(); s.dropAll() })
+	s.probeOK = startEchoServer(t)
 	go s.serve()
 	return s
 }
@@ -81,15 +83,17 @@ func (s *testSSHServer) serve() {
 }
 
 func (s *testSSHServer) handle(nc net.Conn) {
+	// accept 後立刻登記:客戶端在收到認證成功時就會回報已連線,可能早於伺服器端 NewServerConn 返回,
+	// 若等握手完成才登記,dropAll() 在這個空窗內會漏掉連線
+	s.mu.Lock()
+	s.live = append(s.live, nc)
+	s.mu.Unlock()
 	_, chans, reqs, err := ssh.NewServerConn(nc, s.cfg)
 	if err != nil {
 		nc.Close()
 		return
 	}
 	s.conns.Add(1)
-	s.mu.Lock()
-	s.live = append(s.live, nc)
-	s.mu.Unlock()
 	go func() {
 		for r := range reqs {
 			if r.WantReply {
@@ -115,6 +119,9 @@ func (s *testSSHServer) handle(nc net.Conn) {
 		addr := net.JoinHostPort(p.Host, strconv.Itoa(int(p.Port)))
 		if s.redirect != nil {
 			addr = s.redirect(addr)
+		}
+		if addr == ipv4ProbeTarget || addr == ipv6ProbeTarget {
+			addr = s.probeOK
 		}
 		go func(nch ssh.NewChannel, addr string) {
 			tc, err := net.DialTimeout("tcp", addr, 3*time.Second)
@@ -248,11 +255,11 @@ type testPlatform struct {
 	msgs     []string
 	rejectHK bool
 	stateCh  chan int
-	ipv6Ch   chan bool
+	ipCh     chan [2]int
 }
 
 func newTestPlatform(t *testing.T) *testPlatform {
-	return &testPlatform{t: t, stateCh: make(chan int, 64), ipv6Ch: make(chan bool, 4)}
+	return &testPlatform{t: t, stateCh: make(chan int, 64), ipCh: make(chan [2]int, 4)}
 }
 
 func (p *testPlatform) Protect(fd int) bool            { return true }
@@ -271,7 +278,7 @@ func (p *testPlatform) OnState(s int, msg string) {
 	}
 }
 func (p *testPlatform) Log(level int, msg string) { p.t.Logf("[%d] %s", level, msg) }
-func (p *testPlatform) OnIPv6(ok bool)            { p.ipv6Ch <- ok }
+func (p *testPlatform) OnServerIP(v4, v6 int)     { p.ipCh <- [2]int{v4, v6} }
 
 func (p *testPlatform) waitState(t *testing.T, want int, d time.Duration) string {
 	t.Helper()

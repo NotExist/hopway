@@ -15,6 +15,7 @@ import io.github.sshtunnelvpn.data.IpInfoRepository
 import io.github.sshtunnelvpn.data.Profile
 import io.github.sshtunnelvpn.tunnel.BasePlatform
 import io.github.sshtunnelvpn.tunnel.EngineOps
+import io.github.sshtunnelvpn.tunnel.toProbe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -47,13 +48,6 @@ data class Probe(
 sealed interface UiMessage {
     data class Text(val text: String) : UiMessage
     data class Res(val id: Int, val args: List<Any> = emptyList()) : UiMessage
-}
-
-/** TestResult.IPv6:1 有 / 2 沒有 / 0 無法判定。 */
-fun ipv6Of(v: Long): Boolean? = when (v) {
-    1L -> true
-    2L -> false
-    else -> null
 }
 
 class ProfilesViewModel(private val c: AppContainer) : ViewModel() {
@@ -133,12 +127,14 @@ class ProfilesViewModel(private val c: AppContainer) : ViewModel() {
         edit(p.id) { it.copy(checkingExit = true) }
         viewModelScope.launch {
             val platform = BasePlatform(c.knownHosts, persistHostKeys = false, onMismatch = {}, logs = c.logs)
-            val r = EngineOps.test(p, platform, IpInfoRepository.EXIT_URL)
+            val r = EngineOps.test(p, platform, withExit = true)
             r.onSuccess { res ->
-                ipv6Of(res.getIPv6())?.let { c.ipInfo.recordIpv6(p.id, it) }
-                val info = res.exitInfo.takeIf { it.isNotEmpty() }?.let(IpInfoRepository::parse)
-                if (info != null) c.ipInfo.recordExit(p.id, info)
-                else _message.value = UiMessage.Text(res.exitError.ifBlank { "unexpected response" })
+                val probe = res.toProbe()
+                c.ipInfo.record(p.id, probe)
+                if (probe.exit4 == null && probe.exit6 == null) {
+                    _message.value = UiMessage.Text(listOf(res.exitError, res.exitError6).filter { it.isNotBlank() }
+                        .joinToString(" / ").ifBlank { "unexpected response" })
+                }
             }.onFailure { _message.value = UiMessage.Text(it.message ?: it.toString()) }
             edit(p.id) { it.copy(checkingExit = false) }
         }

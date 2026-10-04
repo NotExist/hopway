@@ -18,6 +18,7 @@ import io.github.sshtunnelvpn.ui.apps.AppPickerScreen
 import io.github.sshtunnelvpn.ui.home.HomeScreen
 import io.github.sshtunnelvpn.ui.hosts.KnownHostsScreen
 import io.github.sshtunnelvpn.ui.logs.LogsScreen
+import io.github.sshtunnelvpn.ui.profiles.DiagnosticsScreen
 import io.github.sshtunnelvpn.ui.profiles.ProfileEditScreen
 import io.github.sshtunnelvpn.ui.profiles.ProfilesScreen
 import io.github.sshtunnelvpn.ui.settings.SettingsScreen
@@ -31,6 +32,7 @@ sealed interface Route : NavKey {
     @Serializable data object AppPicker : Route
     @Serializable data object Logs : Route
     @Serializable data object KnownHosts : Route
+    @Serializable data class Diagnostics(val profileId: String) : Route
 }
 
 fun NavBackStack<NavKey>.pop() {
@@ -69,6 +71,7 @@ fun AppNavigation(connectRequest: Int) {
             entry<Route.AppPicker> { AppPickerScreen(onBack = back) }
             entry<Route.Logs> { LogsScreen(onBack = back) }
             entry<Route.KnownHosts> { KnownHostsScreen(onBack = back) }
+            entry<Route.Diagnostics> { DiagnosticsScreen(profileId = it.profileId, onBack = back) }
         },
     )
 }

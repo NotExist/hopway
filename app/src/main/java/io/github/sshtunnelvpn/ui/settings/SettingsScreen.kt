@@ -244,7 +244,8 @@ private fun DnsDialog(current: String, onDismiss: () -> Unit, onConfirm: (String
             title = stringResource(R.string.pref_dns_upstream),
             initial = current,
             supporting = stringResource(R.string.pref_dns_upstream_hint),
-            validate = { it.isNotBlank() && !it.contains(' ') },
+            // 可填多個(逗號分隔);每一項須是 host 或 host:port
+            validate = { v -> v.split(',').map { it.trim() }.let { l -> l.isNotEmpty() && l.all { it.isNotEmpty() && ' ' !in it } } },
             onDismiss = onDismiss,
             onConfirm = onConfirm,
         )

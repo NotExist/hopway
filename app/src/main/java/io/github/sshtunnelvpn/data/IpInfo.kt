@@ -28,8 +28,12 @@ data class IpInfo(
 data class IpInfoStore(
     /** 入口 IP 查詢快取,以 IP 為鍵。 */
     val byIp: Map<String, IpInfo> = emptyMap(),
-    /** 經通道查到的出口資訊,以 profile id 為鍵。 */
+    /** 經通道查到的 IPv4 出口資訊(ipinfo.io),以 profile id 為鍵。 */
     val exits: Map<String, IpInfo> = emptyMap(),
+    /** 經通道查到的 IPv6 出口資訊(v6.ipinfo.io),以 profile id 為鍵。 */
+    val exits6: Map<String, IpInfo> = emptyMap(),
+    /** 伺服器有沒有 IPv4 對外能力(實測),以 profile id 為鍵。不假設 IPv4 一定存在。 */
+    val ipv4: Map<String, Boolean> = emptyMap(),
     /** 伺服器有沒有 IPv6 對外能力(引擎連線後實測),以 profile id 為鍵;供 IPv6「自動」模式使用。 */
     val ipv6: Map<String, Boolean> = emptyMap(),
 )
@@ -39,6 +43,8 @@ class IpInfoRepository(private val store: DataStore<IpInfoStore>) {
     val data: Flow<IpInfoStore> = store.data
     val exits: Flow<Map<String, IpInfo>> = store.data.map { it.exits }
     val ipv6: Flow<Map<String, Boolean>> = store.data.map { it.ipv6 }
+    val ipv4: Flow<Map<String, Boolean>> = store.data.map { it.ipv4 }
+    val exits6: Flow<Map<String, IpInfo>> = store.data.map { it.exits6 }
 
     private val inflight = Mutex()
 
@@ -58,17 +64,43 @@ class IpInfoRepository(private val store: DataStore<IpInfoStore>) {
         store.updateData { s -> s.copy(exits = s.exits + (profileId to info)) }
     }
 
+    suspend fun recordExit6(profileId: String, info: IpInfo) {
+        store.updateData { s -> s.copy(exits6 = s.exits6 + (profileId to info)) }
+    }
+
+    /** 記錄伺服器對外能力;null 表示無法判定,不覆蓋既有結果。 */
+    suspend fun recordFamilies(profileId: String, ipv4: Boolean?, ipv6: Boolean?) {
+        store.updateData { s ->
+            s.copy(
+                ipv4 = if (ipv4 != null) s.ipv4 + (profileId to ipv4) else s.ipv4,
+                ipv6 = if (ipv6 != null) s.ipv6 + (profileId to ipv6) else s.ipv6,
+            )
+        }
+    }
+
     suspend fun exitCheckedRecently(profileId: String): Boolean =
         store.data.first().exits[profileId]?.let { fresh(it.fetchedAt, EXIT_RECHECK_MS) } == true
 
     suspend fun forget(profileId: String) {
-        store.updateData { s -> s.copy(exits = s.exits - profileId, ipv6 = s.ipv6 - profileId) }
+        store.updateData { s ->
+            s.copy(exits = s.exits - profileId, exits6 = s.exits6 - profileId, ipv4 = s.ipv4 - profileId, ipv6 = s.ipv6 - profileId)
+        }
     }
 
     suspend fun ipv6Capable(profileId: String): Boolean? = store.data.first().ipv6[profileId]
 
     suspend fun recordIpv6(profileId: String, available: Boolean) {
         store.updateData { s -> s.copy(ipv6 = s.ipv6 + (profileId to available)) }
+    }
+
+    /** 測試連線/診斷的結果:兩個協定的出口與伺服器對外能力。 */
+    data class Probe(val exit4: IpInfo?, val exit6: IpInfo?, val ipv4: Boolean?, val ipv6: Boolean?)
+
+    /** 把一次 Probe 寫回(未取得的部分不覆蓋既有資料)。 */
+    suspend fun record(profileId: String, p: Probe) {
+        recordFamilies(profileId, p.ipv4, p.ipv6)
+        p.exit4?.let { recordExit(profileId, it) }
+        p.exit6?.let { recordExit6(profileId, it) }
     }
 
     private fun fresh(t: Long, ttl: Long) = System.currentTimeMillis() - t < ttl
@@ -98,8 +130,12 @@ class IpInfoRepository(private val store: DataStore<IpInfoStore>) {
 
     companion object {
         const val BASE = "https://ipinfo.io"
-        /** 經通道查出口用的 URL:回傳「發出請求者」的 IP。 */
+        /**
+         * 經通道查出口用的 URL:回傳「發出請求者」的 IP。
+         * ipinfo.io 只有 IPv4(A 記錄)、v6.ipinfo.io 只有 IPv6(AAAA),分別查就能各自測出兩個協定的出口。
+         */
         const val EXIT_URL = "$BASE/json"
+        const val EXIT_URL6 = "https://v6.ipinfo.io/json"
         private const val CACHE_MS = 7L * 24 * 3600 * 1000
         private const val EXIT_RECHECK_MS = 10L * 60 * 1000
 

@@ -25,7 +25,8 @@ data class TrafficStats(
     val udpDropped: Long = 0,
     /** 伺服器端連不到目的地、或因伺服器無 IPv6 而直接拒絕的 TCP 連線。 */
     val dialFailures: Long = 0,
-    /** 伺服器 IPv6 能力:0 偵測中 / 1 有 / 2 沒有。 */
+    /** 伺服器 IPv4 / IPv6 能力:0 偵測中 / 1 有 / 2 沒有。 */
+    val serverIpv4: Int = 0,
     val serverIpv6: Int = 0,
     val dnsQueries: Long = 0,
     val dnsCacheHits: Long = 0,

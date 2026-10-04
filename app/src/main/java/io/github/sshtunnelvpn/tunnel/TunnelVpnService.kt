@@ -217,7 +217,8 @@ class TunnelVpnService : VpnService() {
                 val stats = TrafficStats(
                     rxBytes = st.rxBytes, txBytes = st.txBytes, rxRate = rxRate, txRate = txRate,
                     tcpActive = st.tcpActive, tcpTotal = st.tcpTotal, udpActive = st.udpActive,
-                    udpDropped = st.udpDropped, dialFailures = st.dialFailures, serverIpv6 = st.getIPv6().toInt(),
+                    udpDropped = st.udpDropped, dialFailures = st.dialFailures,
+                    serverIpv4 = st.getIPv4().toInt(), serverIpv6 = st.getIPv6().toInt(),
                     dnsQueries = st.dnsQueries, dnsCacheHits = st.dnsCacheHits, rttMillis = st.rttMillis,
                     sshLive = st.sshLive, sshTotal = st.sshTotal, uptimeMillis = st.uptimeMillis,
                     serverVersion = st.serverVersion,
@@ -308,13 +309,16 @@ class TunnelVpnService : VpnService() {
         val ipInfo = container.ipInfo
         container.appScope.launch(Dispatchers.IO) {
             if (ipInfo.exitCheckedRecently(profileId)) return@launch
-            runCatching { Sshvpn.fetchViaTunnel(IpInfoRepository.EXIT_URL, 8000) }
-                .mapCatching { IpInfoRepository.parse(it) ?: error("unexpected response") }
-                .onSuccess {
-                    ipInfo.recordExit(profileId, it)
-                    logs.add(LogBuffer.INFO, "Exit IP ${it.ip} (${it.country ?: "?"})")
-                }
-                .onFailure { logs.add(LogBuffer.WARN, "Exit IP check failed: ${it.message}") }
+            // 分別查 IPv4(ipinfo.io)與 IPv6(v6.ipinfo.io)出口;查不到的協定通常代表伺服器不支援
+            for ((url, v6) in listOf(IpInfoRepository.EXIT_URL to false, IpInfoRepository.EXIT_URL6 to true)) {
+                runCatching { Sshvpn.fetchViaTunnel(url, 8000) }
+                    .mapCatching { IpInfoRepository.parse(it) ?: error("unexpected response") }
+                    .onSuccess {
+                        if (v6) ipInfo.recordExit6(profileId, it) else ipInfo.recordExit(profileId, it)
+                        logs.add(LogBuffer.INFO, "Exit ${if (v6) "IPv6" else "IPv4"} ${it.ip} (${it.country ?: "?"})")
+                    }
+                    .onFailure { logs.add(LogBuffer.INFO, "Exit ${if (v6) "IPv6" else "IPv4"} not available: ${it.message}") }
+            }
         }
     }
 
@@ -322,14 +326,11 @@ class TunnelVpnService : VpnService() {
      * 引擎回報伺服器的 IPv6 能力後:記住結果(按伺服器),AUTO 模式下若與目前介面設定不符,
      * 重建一次 VPN 介面(新介面建立後系統會無縫接手,SSH 會重新連線一次)。之後同一台伺服器直接用記住的結果。
      */
-    private fun onServerIpv6(available: Boolean) {
+    private fun onServerIp(ipv4: Boolean?, ipv6: Boolean?) {
         val p = profile ?: return
         container.appScope.launch {
-            container.ipInfo.recordIpv6(p.id, available)
-            logs.add(
-                LogBuffer.INFO,
-                if (available) "Server has IPv6 connectivity" else "Server has no IPv6 connectivity",
-            )
+            container.ipInfo.recordFamilies(p.id, ipv4, ipv6)
+            val available = ipv6 ?: return@launch
             val mode = container.settings.current().ipv6Mode
             if (mode == Ipv6Mode.AUTO && available != interfaceV6) {
                 logs.add(
@@ -350,7 +351,7 @@ class TunnelVpnService : VpnService() {
     ) {
         override fun protect(fd: Long): Boolean = this@TunnelVpnService.protect(fd.toInt())
 
-        override fun onIPv6(available: Boolean) = onServerIpv6(available)
+        override fun onServerIP(ipv4: Long, ipv6: Long) = onServerIp(familyOf(ipv4), familyOf(ipv6))
 
         override fun onState(state: Long, message: String) {
             when (state.toInt()) {
@@ -375,4 +376,11 @@ class TunnelVpnService : VpnService() {
         const val EXTRA_PROFILE_ID = "profile_id"
         private const val NOTIFICATION_ID = 1
     }
+}
+
+/** Go 端能力值:1 有 / 2 沒有 / 0 無法判定(null)。 */
+fun familyOf(v: Long): Boolean? = when (v) {
+    1L -> true
+    2L -> false
+    else -> null
 }

@@ -3,6 +3,7 @@ package io.github.sshtunnelvpn.tunnel
 import io.github.sshtunnelvpn.data.AppSettings
 import io.github.sshtunnelvpn.data.AuthType
 import io.github.sshtunnelvpn.data.HostKeyVerdict
+import io.github.sshtunnelvpn.data.IpInfoRepository
 import io.github.sshtunnelvpn.data.KnownHostsRepository
 import io.github.sshtunnelvpn.data.Profile
 import io.github.sshtunnelvpn.sshvpn.Platform
@@ -25,7 +26,13 @@ object TunAddress {
 }
 
 object EngineConfig {
-    fun json(p: Profile, s: AppSettings?, virtualDns: String?, exitCheckUrl: String? = null): String = buildJsonObject {
+    fun json(
+        p: Profile,
+        s: AppSettings?,
+        virtualDns: String?,
+        exitCheckUrl: String? = null,
+        exitCheckUrl6: String? = null,
+    ): String = buildJsonObject {
         put("host", p.host.trim())
         put("port", p.port)
         put("user", p.username.trim())
@@ -48,6 +55,7 @@ object EngineConfig {
         }
         if (virtualDns != null) put("virtualDns", virtualDns)
         if (exitCheckUrl != null) put("exitCheckUrl", exitCheckUrl)
+        if (exitCheckUrl6 != null) put("exitCheckUrl6", exitCheckUrl6)
     }.toString()
 }
 
@@ -63,10 +71,9 @@ open class BasePlatform(
     override fun protect(fd: Long): Boolean = true
 
     override fun resolveHost(host: String): String = try {
-        // 優先 IPv4:行動網路的 IPv6 常有 NAT64/防火牆怪癖
-        InetAddress.getAllByName(host)
-            .sortedBy { if (it.address.size == 4) 0 else 1 }
-            .joinToString(",") { it.hostAddress.orEmpty() }
+        // 保留系統排序(已依目前網路的 IPv4/IPv6 可用性排好),Go 端以 Happy Eyeballs 交錯嘗試;
+        // 不假設 IPv4 一定存在
+        InetAddress.getAllByName(host).joinToString(",") { it.hostAddress.orEmpty() }
     } catch (_: Exception) {
         ""
     }
@@ -88,7 +95,7 @@ open class BasePlatform(
 
     override fun onState(state: Long, message: String) {}
 
-    override fun onIPv6(available: Boolean) {}
+    override fun onServerIP(ipv4: Long, ipv6: Long) {}
 
     override fun log(level: Long, message: String) {
         logs?.add(level.toInt(), message)
@@ -96,9 +103,37 @@ open class BasePlatform(
 }
 
 object EngineOps {
-    /** [exitCheckUrl] 非空時,測試連線後經通道查詢出口資訊。 */
-    suspend fun test(p: Profile, platform: Platform, exitCheckUrl: String? = null): Result<TestResult> =
+    /** [withExit] 時,測試連線後經通道分別查詢 IPv4 / IPv6 出口資訊。 */
+    suspend fun test(p: Profile, platform: Platform, withExit: Boolean = false): Result<TestResult> =
         withContext(Dispatchers.IO) {
-            runCatching { Sshvpn.testConnection(EngineConfig.json(p, null, null, exitCheckUrl), platform) }
+            val json = if (withExit) {
+                EngineConfig.json(p, null, null, IpInfoRepository.EXIT_URL, IpInfoRepository.EXIT_URL6)
+            } else {
+                EngineConfig.json(p, null, null)
+            }
+            runCatching { Sshvpn.testConnection(json, platform) }
         }
+
+    /** Cloudflare trace 解析結果;[error] 非空表示該協定查不到(通常代表不通)。 */
+    data class Trace(val ip: String? = null, val country: String? = null, val error: String? = null)
+
+    /** 查「此刻」對外位址:[viaTunnel] = 經 VPN(網站看到的你),否則本機直連。 */
+    suspend fun trace(viaTunnel: Boolean, ipv6: Boolean): Trace = withContext(Dispatchers.IO) {
+        runCatching { Sshvpn.fetchTrace(viaTunnel, ipv6, 6000) }.fold(
+            onSuccess = { body ->
+                val kv = body.lineSequence().mapNotNull { l -> l.split('=', limit = 2).takeIf { it.size == 2 } }
+                    .associate { (k, v) -> k.trim() to v.trim() }
+                Trace(ip = kv["ip"], country = kv["loc"]?.takeIf { it.length == 2 && it != "XX" })
+            },
+            onFailure = { Trace(error = it.message ?: it.toString()) },
+        )
+    }
 }
+
+/** TestResult → 兩協定出口與伺服器能力。 */
+fun TestResult.toProbe() = IpInfoRepository.Probe(
+    exit4 = exitInfo.takeIf { it.isNotEmpty() }?.let(IpInfoRepository::parse),
+    exit6 = exitInfo6.takeIf { it.isNotEmpty() }?.let(IpInfoRepository::parse),
+    ipv4 = familyOf(getIPv4()),
+    ipv6 = familyOf(getIPv6()),
+)

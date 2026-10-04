@@ -86,11 +86,12 @@ func (e *engine) run(tunFd int) error {
 	}
 
 	e.pool = newSSHPool(e.cfg, e.plat, e.log, e.setState)
-	e.dns = newDNSClient(e.pool.Dial, e.cfg.DNSUpstream, e.cfg.DNSCache, e.log)
+	e.dns = newDNSClient(e.pool.Dial, e.cfg.dnsUpstreams, e.cfg.DNSCache, e.log)
 	if e.cfg.UDPGW != "" {
 		e.udpgw = newUDPGWClient(e.pool.Dial, e.cfg.UDPGW, e.log)
 	}
 	h := &handler{ctx: ctx, pool: e.pool, dns: e.dns, udpgw: e.udpgw, vdns: vdns, log: e.log, st: &e.st}
+	e.dns.unsupported = h.unsupported
 
 	var dev stack.LinkEndpoint
 	switch {
@@ -115,7 +116,7 @@ func (e *engine) run(tunFd int) error {
 	e.bg.Add(1)
 	go func() {
 		defer e.bg.Done()
-		e.probeIPv6(ctx, h)
+		e.probeServer(ctx, h)
 	}()
 
 	if e.cfg.SocksListen != "" {
@@ -126,8 +127,8 @@ func (e *engine) run(tunFd int) error {
 			e.socks = s
 		}
 	}
-	e.log.infof("engine started (mtu=%d, connections=%d, dns=%s, udpgw=%q)",
-		e.cfg.MTU, e.cfg.Connections, e.cfg.DNSUpstream, e.cfg.UDPGW)
+	e.log.infof("engine started (mtu=%d, connections=%d, dns=%v, udpgw=%q)",
+		e.cfg.MTU, e.cfg.Connections, e.cfg.dnsUpstreams, e.cfg.UDPGW)
 	return nil
 }
 
@@ -218,7 +219,8 @@ type Stats struct {
 	UDPActive    int64
 	UDPDropped   int64
 	DialFailures int64
-	// IPv6 為伺服器的 IPv6 能力:0 偵測中 / 1 有 / 2 沒有
+	// IPv4 / IPv6 為伺服器的對外能力:0 偵測中 / 1 有 / 2 沒有
+	IPv4          int64
 	IPv6          int64
 	DNSQueries    int64
 	DNSCacheHits  int64
@@ -247,6 +249,7 @@ func GetStats() *Stats {
 	s.UDPActive = e.st.udpActive.Load()
 	s.DialFailures = e.st.dialFailures.Load()
 	s.UDPDropped = e.st.udpDropped.Load()
+	s.IPv4 = int64(e.h.ipv4.Load())
 	s.IPv6 = int64(e.h.ipv6.Load())
 	s.DNSQueries = e.dns.queries.Load()
 	s.DNSCacheHits = e.dns.hits.Load()
@@ -270,9 +273,12 @@ type TestResult struct {
 	UDPGWOK       bool
 	UDPGWError    string
 	// ExitInfo 為經通道 GET ExitCheckURL 的回應 body(JSON),ExitError 為失敗原因
-	ExitInfo  string
-	ExitError string
-	// IPv6 為伺服器的 IPv6 對外能力:0 無法判定 / 1 有 / 2 沒有
+	ExitInfo   string
+	ExitError  string
+	ExitInfo6  string
+	ExitError6 string
+	// IPv4 / IPv6 為伺服器的對外能力:0 無法判定 / 1 有 / 2 沒有
+	IPv4 int64
 	IPv6 int64
 }
 
@@ -314,13 +320,13 @@ func TestConnection(configJSON string, p Platform) (*TestResult, error) {
 		}
 	}
 	dial := func(ctx context.Context, addr string) (net.Conn, error) { return client.DialContext(ctx, "tcp", addr) }
-	res.IPv6 = int64(probeIPv6With(ctx, dial))
+	v4, v6 := probeBoth(ctx, dial)
+	res.IPv4, res.IPv6 = int64(v4), int64(v6)
 	if cfg.ExitCheckURL != "" {
-		if body, err := httpGet(ctx, dial, cfg.ExitCheckURL); err != nil {
-			res.ExitError = err.Error()
-		} else {
-			res.ExitInfo = body
-		}
+		res.ExitInfo, res.ExitError = fetchOrError(ctx, dial, cfg.ExitCheckURL)
+	}
+	if cfg.ExitCheckURL6 != "" {
+		res.ExitInfo6, res.ExitError6 = fetchOrError(ctx, dial, cfg.ExitCheckURL6)
 	}
 	return res, nil
 }
@@ -336,4 +342,11 @@ func (h *hostKeyCapture) VerifyHostKey(host string, port int, keyType, fp, keyB6
 		return true
 	}
 	return h.Platform.VerifyHostKey(host, port, keyType, fp, keyB64)
+}
+
+// currentEngine 回傳執行中的引擎(測試用)。
+func currentEngine() *engine {
+	mu.Lock()
+	defer mu.Unlock()
+	return cur
 }

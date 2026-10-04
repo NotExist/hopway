@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
+	"golang.org/x/net/dns/dnsmessage"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
@@ -33,7 +34,8 @@ type handler struct {
 	log   *logger
 	st    *counters
 	stack *stack.Stack
-	// 伺服器的 IPv6 能力:ipv6Unknown / ipv6Yes / ipv6No(由 probeIPv6 設定)
+	// 伺服器的 IPv4 / IPv6 對外能力:famUnknown / famYes / famNo(由 probeServer 設定)
+	ipv4 atomic.Int32
 	ipv6 atomic.Int32
 }
 
@@ -138,8 +140,10 @@ func (h *handler) handleDNS(c net.Conn) {
 		go func() {
 			var resp []byte
 			var err error
-			if h.ipv6.Load() == ipv6No && isAAAAQuery(q) {
-				// 伺服器沒有 IPv6:AAAA 回空結果,App 只會拿到 IPv4 位址
+			if t := queryType(q); (t == dnsmessage.TypeAAAA && h.ipv6.Load() == famNo) ||
+				(t == dnsmessage.TypeA && h.ipv4.Load() == famNo && h.ipv6.Load() == famYes) {
+				// 伺服器連不到該協定:對應的記錄回空結果,App 只會拿到可用協定的位址
+				// (A 只在確定有 IPv6 可用時才過濾,避免兩邊都拿不到)
 				resp = emptyAnswer(q)
 			} else {
 				resp, err = h.dns.Query(h.ctx, q)

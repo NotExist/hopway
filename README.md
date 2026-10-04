@@ -58,6 +58,16 @@ The Go tests use a second gVisor stack as the "app", so they cover the whole pat
 TCP payload integrity (8 × 2 MB in both directions), two parallel SSH connections, DNS pipelining and caching,
 udpgw, SOCKS5, reconnect after the server drops the connection, auth failure, host-key rejection, and public-key auth with an encrypted key.
 
+## IPv4 / IPv6 — no family is assumed
+
+Neither IPv4 nor IPv6 is assumed to exist, on the phone's network or on the SSH server:
+
+- **Connecting to the server:** addresses from the system resolver are tried Happy-Eyeballs style (families interleaved, a new attempt every 250 ms, first success wins), so an IPv6-only network doesn't wait for an IPv4 timeout.
+- **Server capability:** after connecting, the engine probes both `1.1.1.1:443` and `[2606:4700:4700::1111]:443` through the server. A family the server can't reach is refused immediately (RST → apps use the other family), and its DNS records are answered empty (AAAA always; A only when IPv6 works, so something remains).
+- **DNS upstream:** well-known public resolvers get their other-family address added automatically (e.g. `1.1.1.1` → also `2606:4700:4700::1111`), and upstreams of a family the server lacks are tried last.
+- **Home screen "Public address":** checked live with Cloudflare's `/cdn-cgi/trace` on literal addresses (`1.1.1.1` / `[2606:4700:4700::1111]`), so each row tests exactly one family and needs no DNS. Shown for "through VPN" and "this device directly" (the app itself is excluded from the VPN).
+- **Diagnostics (long-press a server):** short SSH login; IPv4/IPv6 capability; raw ipinfo JSON for each family (`ipinfo.io` is IPv4-only, `v6.ipinfo.io` is IPv6-only).
+
 ## IPv6
 
 IPv6 traffic is **always captured** by the VPN (`::/0` is routed into the tunnel), so it can never leak out of the

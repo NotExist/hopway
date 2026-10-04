@@ -385,23 +385,28 @@ func dialTCP(ctx context.Context, cfg *Config, plat Platform, log *logger) (net.
 			return nil
 		},
 	}
-	var lastErr error
-	for _, ip := range ips {
-		ip = strings.TrimSpace(ip)
-		if ip == "" {
-			continue
+	if len(ips) == 1 && net.ParseIP(strings.TrimSpace(ips[0])) == nil {
+		// 平台端解析失敗,交給 Go resolver(含 Happy Eyeballs)
+		c, err := d.DialContext(ctx, "tcp", net.JoinHostPort(ips[0], strconv.Itoa(cfg.Port)))
+		if err != nil {
+			return nil, err
 		}
-		c, err := d.DialContext(ctx, "tcp", net.JoinHostPort(ip, strconv.Itoa(cfg.Port)))
-		if err == nil {
-			if tc, ok := c.(*net.TCPConn); ok {
-				_ = tc.SetNoDelay(true)
-			}
-			return c, nil
-		}
-		log.debugf("tcp connect %s failed: %v", ip, err)
-		lastErr = err
+		setNoDelay(c)
+		return c, nil
 	}
-	return nil, lastErr
+	c, err := dialHappyEyeballs(ctx, d, ips, strconv.Itoa(cfg.Port))
+	if err != nil {
+		log.debugf("tcp connect %s failed: %v", cfg.Host, err)
+		return nil, err
+	}
+	setNoDelay(c)
+	return c, nil
+}
+
+func setNoDelay(c net.Conn) {
+	if tc, ok := c.(*net.TCPConn); ok {
+		_ = tc.SetNoDelay(true)
+	}
 }
 
 func authMethods(cfg *Config) ([]ssh.AuthMethod, error) {

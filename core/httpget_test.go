@@ -1,6 +1,7 @@
 package sshvpn
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -93,7 +94,7 @@ func TestTestConnectionProbesIPv6(t *testing.T) {
 	for _, tc := range []struct {
 		to   string
 		want int64
-	}{{echo, ipv6Yes}, {closed, ipv6No}} {
+	}{{echo, famYes}, {closed, famNo}} {
 		srv := newTestSSHServer(t, "pw", nil)
 		srv.redirect = func(addr string) string {
 			if addr == ipv6ProbeTarget {
@@ -110,5 +111,50 @@ func TestTestConnectionProbesIPv6(t *testing.T) {
 		if res.IPv6 != tc.want {
 			t.Fatalf("ipv6 = %d, want %d", res.IPv6, tc.want)
 		}
+	}
+}
+
+// FetchTrace 經通道:請求由伺服器端連到 Cloudflare 的字面位址(這裡導到本機替身)。
+func TestFetchTraceViaTunnel(t *testing.T) {
+	trace := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "fl=1\nip=203.0.113.10\nloc=JP\n")
+	}))
+	t.Cleanup(trace.Close)
+	srv := newTestSSHServer(t, "pw", nil)
+	var mu sync.Mutex
+	var dialed []string
+	srv.redirect = func(addr string) string {
+		mu.Lock()
+		dialed = append(dialed, addr)
+		mu.Unlock()
+		if addr == "1.1.1.1:80" {
+			return strings.TrimPrefix(trace.URL, "http://")
+		}
+		return addr
+	}
+	plat := newTestPlatform(t)
+	if err := Start(-1, cfgJSON(t, map[string]any{
+		"host": "127.0.0.1", "port": srv.port(), "user": "u", "password": "pw",
+	}), plat); err != nil {
+		t.Fatal(err)
+	}
+	defer Stop()
+	plat.waitState(t, StateConnected, 5*time.Second)
+	e := currentEngine()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// 公開 API 用 https;這裡以相同路徑(經 pool.Dial)測 http 版,避免測試憑證問題
+	body, err := httpGet(ctx, e.pool.Dial, "http://1.1.1.1/cdn-cgi/trace")
+	if err != nil || !strings.Contains(body, "loc=JP") {
+		t.Fatalf("trace: %q %v", body, err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	found := false
+	for _, a := range dialed {
+		found = found || a == "1.1.1.1:80"
+	}
+	if !found {
+		t.Fatalf("trace not dialed by literal address via server: %v", dialed)
 	}
 }

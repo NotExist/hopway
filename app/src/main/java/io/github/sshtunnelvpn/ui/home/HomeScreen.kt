@@ -81,6 +81,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.sshtunnelvpn.ui.components.LatencyBadge
 import io.github.sshtunnelvpn.R
 import io.github.sshtunnelvpn.container
 import io.github.sshtunnelvpn.data.AppSettings
@@ -92,7 +94,6 @@ import io.github.sshtunnelvpn.tunnel.TunnelStatus
 import io.github.sshtunnelvpn.ui.Route
 import io.github.sshtunnelvpn.ui.components.SpeedChart
 import io.github.sshtunnelvpn.ui.profiles.MissingCredentialsWarning
-import io.github.sshtunnelvpn.ui.profiles.placeLabel
 import io.github.sshtunnelvpn.ui.formatBytes
 import io.github.sshtunnelvpn.ui.formatDuration
 import io.github.sshtunnelvpn.ui.formatRate
@@ -108,7 +109,10 @@ fun HomeScreen(navigate: (Route) -> Unit, connectRequest: Int) {
     val mismatch by c.tunnel.hostKeyMismatch.collectAsStateWithLifecycle()
     val settings by c.settings.settings.collectAsStateWithLifecycle(AppSettings())
     val profiles by c.profiles.profiles.collectAsStateWithLifecycle(emptyList())
-    val exits by c.ipInfo.exits.collectAsStateWithLifecycle(emptyMap())
+    val addrVm: AddressViewModel = viewModel()
+    val connected = status.state == TunnelState.CONNECTED
+    // 對外位址一律當下查詢:進入首頁、連上/斷線、IPv6 經通道與否改變時都重查
+    LaunchedEffect(connected, status.ipv6Routed) { addrVm.refresh(connected, status.ipv6Routed) }
     val selected = profiles.find { it.id == settings.selectedProfileId } ?: profiles.firstOrNull()
     val scope = rememberCoroutineScope()
 
@@ -182,7 +186,20 @@ fun HomeScreen(navigate: (Route) -> Unit, connectRequest: Int) {
             Spacer(Modifier.height(16.dp))
             StatusLine(status)
             Spacer(Modifier.height(24.dp))
-            ProfileCard(selected, selected?.let { exits[it.id] }, onClick = { navigate(if (profiles.isEmpty()) Route.EditProfile() else Route.Profiles) })
+            ProfileCard(
+                selected,
+                liveRtt = status.stats.rttMillis.takeIf { connected && selected?.id == status.profileId && it > 0 },
+                onClick = { navigate(if (profiles.isEmpty()) Route.EditProfile() else Route.Profiles) },
+            )
+            Spacer(Modifier.height(12.dp))
+            AddressCard(
+                addrVm,
+                connected = connected,
+                ipv6Routed = status.ipv6Routed,
+                serverIpv6 = status.stats.serverIpv6,
+                ipv6Mode = settings.ipv6Mode,
+                onRefresh = { addrVm.refresh(connected, status.ipv6Routed) },
+            )
             AnimatedVisibility(status.state == TunnelState.CONNECTED || status.state == TunnelState.RECONNECTING) {
                 Column {
                     Spacer(Modifier.height(12.dp))
@@ -299,7 +316,7 @@ private fun StatusLine(s: TunnelStatus) {
 }
 
 @Composable
-private fun ProfileCard(p: Profile?, exit: io.github.sshtunnelvpn.data.IpInfo?, onClick: () -> Unit) {
+private fun ProfileCard(p: Profile?, liveRtt: Long?, onClick: () -> Unit) {
     ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -330,16 +347,11 @@ private fun ProfileCard(p: Profile?, exit: io.github.sshtunnelvpn.data.IpInfo?, 
                         overflow = TextOverflow.Ellipsis,
                     )
                     MissingCredentialsWarning(p.missingCredentials)
-                    exit?.let {
-                        Text(
-                            listOfNotNull(stringResource(R.string.label_exit), placeLabel(it), it.ip).joinToString("  "),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                 }
+            }
+            // 延遲是「手機到這台伺服器」的屬性,跟伺服器放在一起(與伺服器清單同一個標籤)
+            if (liveRtt != null) {
+                LatencyBadge(ms = liveRtt, failed = false, measuring = false, live = true, modifier = Modifier.padding(end = 8.dp))
             }
             Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -382,51 +394,71 @@ private fun RateColumn(icon: ImageVector, label: String, rate: Long, total: Long
     }
 }
 
+private data class StatItem(val icon: ImageVector, val label: String, val value: String, val detail: String, val help: String)
+
+/** 首頁只留需要一眼看到的 4 項;點格子看完整數值與說明。 */
 @Composable
 private fun StatsGrid(s: TunnelStatus) {
     val st = s.stats
-    val hitRate = if (st.dnsQueries > 0) st.dnsCacheHits * 100 / st.dnsQueries else 0
-    val tiles = listOf(
-        Triple(Icons.Outlined.Speed, stringResource(R.string.stat_latency), if (st.rttMillis > 0) "${st.rttMillis} ms" else "—"),
-        Triple(Icons.Outlined.Link, stringResource(R.string.stat_connections), "${st.tcpActive} / ${st.tcpTotal}"),
-        Triple(Icons.Outlined.Hub, stringResource(R.string.stat_ssh_links), "${st.sshLive} / ${st.sshTotal}"),
-        Triple(Icons.Outlined.Dns, stringResource(R.string.stat_dns), "${st.dnsQueries} · $hitRate%"),
-        Triple(Icons.Outlined.Timer, stringResource(R.string.stat_udp), stringResource(R.string.stat_udp_value, st.udpActive, st.udpDropped)),
-        Triple(Icons.Outlined.ErrorOutline, stringResource(R.string.stat_dial_failures), "${st.dialFailures}"),
-        Triple(
-            Icons.Outlined.Language, stringResource(R.string.stat_ipv6),
-            when {
-                s.ipv6Routed -> stringResource(R.string.ipv6_state_routed)
-                st.serverIpv6 == 2 -> stringResource(R.string.ipv6_state_blocked_no_server)
-                st.serverIpv6 == 0 -> stringResource(R.string.ipv6_state_blocked_probing)
-                else -> stringResource(R.string.ipv6_state_blocked)
-            },
+    val items = listOf(
+        StatItem(
+            Icons.Outlined.Hub, stringResource(R.string.stat_ssh_links), "${st.sshLive} / ${st.sshTotal}",
+            stringResource(R.string.stat_ssh_links_detail, st.sshLive, st.sshTotal), stringResource(R.string.stat_ssh_links_help),
         ),
-        Triple(Icons.Outlined.Storage, stringResource(R.string.stat_server), st.serverVersion.removePrefix("SSH-2.0-").ifBlank { "—" }),
+        StatItem(
+            Icons.Outlined.ErrorOutline, stringResource(R.string.stat_dial_failures), "${st.dialFailures}",
+            "${st.dialFailures}", stringResource(R.string.stat_dial_failures_help),
+        ),
+        StatItem(
+            Icons.Outlined.Timer, stringResource(R.string.stat_udp_short), "${st.udpActive} / ${st.udpDropped}",
+            stringResource(R.string.stat_udp_value, st.udpActive, st.udpDropped), stringResource(R.string.stat_udp_help),
+        ),
+        StatItem(
+            Icons.Outlined.Link, stringResource(R.string.stat_tcp_active), "${st.tcpActive}",
+            stringResource(R.string.stat_tcp_detail, st.tcpActive, st.tcpTotal), stringResource(R.string.stat_tcp_help),
+        ),
     )
+    var open by remember { mutableStateOf<StatItem?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        tiles.chunked(2).forEach { row ->
+        items.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEach { (icon, label, value) -> StatTile(icon, label, value, Modifier.weight(1f)) }
+                row.forEach { item -> StatTile(item, Modifier.weight(1f)) { open = item } }
             }
         }
+    }
+    open?.let { item ->
+        AlertDialog(
+            onDismissRequest = { open = null },
+            icon = { Icon(item.icon, null) },
+            title = { Text(item.label) },
+            text = {
+                Column {
+                    SelectionContainer { Text(item.detail, style = MaterialTheme.typography.titleMedium) }
+                    Spacer(Modifier.height(12.dp))
+                    Text(item.help, style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = null }) { Text(stringResource(R.string.action_ok)) } },
+        )
     }
 }
 
 @Composable
-private fun StatTile(icon: ImageVector, label: String, value: String, modifier: Modifier) {
+private fun StatTile(item: StatItem, modifier: Modifier, onClick: () -> Unit) {
     Card(
+        onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         modifier = modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), CardDefaults.shape),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(item.icon, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(6.dp))
-                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(item.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.height(6.dp))
-            Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.value, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

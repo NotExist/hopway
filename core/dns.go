@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/netip"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,10 +19,12 @@ import (
 // 單一 TCP 連線上做 pipelining(RFC 7766):重編 query ID、依 ID 分派回應,
 // 避免每個查詢都付出開 channel + 遠端 TCP 握手的往返成本。
 type dnsClient struct {
-	dial     func(ctx context.Context, addr string) (net.Conn, error)
-	upstream string
-	log      *logger
-	cache    *dnsCache
+	dial      func(ctx context.Context, addr string) (net.Conn, error)
+	upstreams []string
+	// unsupported 回報伺服器確定連不到某協定;用來把該協定的上游排到最後
+	unsupported func(netip.Addr) bool
+	log         *logger
+	cache       *dnsCache
 
 	mu      sync.Mutex
 	conn    *dnsConn
@@ -42,8 +45,8 @@ type dnsConn struct {
 
 const dnsTimeout = 6 * time.Second
 
-func newDNSClient(dial func(context.Context, string) (net.Conn, error), upstream string, cache bool, log *logger) *dnsClient {
-	d := &dnsClient{dial: dial, upstream: upstream, log: log}
+func newDNSClient(dial func(context.Context, string) (net.Conn, error), upstreams []string, cache bool, log *logger) *dnsClient {
+	d := &dnsClient{dial: dial, upstreams: upstreams, log: log, unsupported: func(netip.Addr) bool { return false }}
 	if cache {
 		d.cache = newDNSCache(4096)
 	}
@@ -66,7 +69,17 @@ func (d *dnsClient) getConn(ctx context.Context) (*dnsConn, error) {
 	if d.conn != nil && !d.conn.isClosed() {
 		return d.conn, nil
 	}
-	c, err := d.dial(ctx, d.upstream)
+	var c net.Conn
+	var err error
+	for _, up := range d.ordered() {
+		if c, err = d.dial(ctx, up); err == nil {
+			break
+		}
+		d.log.debugf("dns upstream %s unavailable: %v", up, err)
+		if ctx.Err() != nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -366,13 +379,17 @@ func adjustTTL(resp []byte, expires time.Time) []byte {
 	return out
 }
 
-func isAAAAQuery(q []byte) bool {
+// queryType 回傳單一問題查詢的類型;無法解析時回傳 0。
+func queryType(q []byte) dnsmessage.Type {
 	var p dnsmessage.Parser
 	if _, err := p.Start(q); err != nil {
-		return false
+		return 0
 	}
 	qs, err := p.AllQuestions()
-	return err == nil && len(qs) == 1 && qs[0].Type == dnsmessage.TypeAAAA
+	if err != nil || len(qs) != 1 {
+		return 0
+	}
+	return qs[0].Type
 }
 
 // emptyAnswer 產生「名稱存在但沒有此類型記錄」的回應(NOERROR、無 answer),
@@ -396,3 +413,20 @@ func emptyAnswer(q []byte) []byte {
 	}
 	return out
 }
+
+// ordered 回傳上游清單:伺服器確定連不到的協定排到最後(保留其餘的原始順序)。
+func (d *dnsClient) ordered() []string {
+	var ok, bad []string
+	for _, up := range d.upstreams {
+		host, _, _ := net.SplitHostPort(up)
+		if a, err := netip.ParseAddr(host); err == nil && d.unsupported(a.Unmap()) {
+			bad = append(bad, up)
+		} else {
+			ok = append(ok, up)
+		}
+	}
+	return append(ok, bad...)
+}
+
+// primary 是目前首選的上游(TCP DNS 到虛擬 DNS 時直接轉給它)。
+func (d *dnsClient) primary() string { return d.ordered()[0] }
