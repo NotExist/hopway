@@ -1,4 +1,4 @@
-module github.com/neo/sshtunnelvpn/core
+module github.com/NotExist/hopway/core
 
 go 1.26.5
 

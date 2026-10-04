@@ -1,10 +1,10 @@
-# sshtunnelvpn_android
+# Hopway(本機資料夾 sshtunnelvpn_android)
 
-以 SSH 伺服器為出口的 Android 全域 VPN,重製自 VPNoverSSH。目前狀態、待辦與里程碑見 `HANDOFF.md`(單一事實來源)。
+以 SSH 伺服器為出口的 Android 全域 VPN(原名 SSH Tunnel VPN,2026-10-04 改名 Hopway),重製自 VPNoverSSH。applicationId / Kotlin package:`not.exist.hopway`。目前狀態、待辦與里程碑見 `HANDOFF.md`(單一事實來源)。
 
 ## 結構
 
-- `core/`:Go 資料平面(package `sshvpn`),gomobile 匯出成 `io.github.sshtunnelvpn.sshvpn.Sshvpn`
+- `core/`:Go 資料平面(package `core`,module `github.com/NotExist/hopway/core`),gomobile 匯出成 `not.exist.hopway.core.Core`
   - `engine.go`:對外 API(Start/Stop/GetStats/NetworkChanged/TestConnection)
   - `sshpool.go`:N 條平行 SSH 連線、keepalive、重連、host key callback
   - `handler.go`:netstack TCP/UDP 分派;`dns.go`:DNS-over-TCP pipelining + 快取;`udpgw.go`;`socks.go`;`keys.go`

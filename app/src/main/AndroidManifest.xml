@@ -23,7 +23,7 @@
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         android:localeConfig="@xml/locales_config"
-        android:theme="@style/Theme.SSHTunnelVPN"
+        android:theme="@style/Theme.Hopway"
         tools:targetApi="36">
 
         <activity
@@ -31,7 +31,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.SSHTunnelVPN.Splash">
+            android:theme="@style/Theme.Hopway.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

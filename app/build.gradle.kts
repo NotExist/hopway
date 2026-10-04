@@ -7,7 +7,7 @@ plugins {
 }
 
 val coreDir = rootProject.layout.projectDirectory.dir("core")
-val coreAar = layout.projectDirectory.file("libs/sshvpn.aar")
+val coreAar = layout.projectDirectory.file("libs/hopway-core.aar")
 val sdkDir: String = Properties().run {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
     getProperty("sdk.dir") ?: System.getenv("ANDROID_HOME").orEmpty()
@@ -16,7 +16,7 @@ val goNdkVersion = "28.2.13676358"
 
 // Go 資料平面 → AAR(gomobile 版本釘在 core/go.mod 的 tool 區塊)。
 val buildGoCore = tasks.register<Exec>("buildGoCore") {
-    description = "Builds core/ (Go) into app/libs/sshvpn.aar via gomobile bind"
+    description = "Builds core/ (Go) into app/libs/hopway-core.aar via gomobile bind"
     inputs.files(fileTree(coreDir) { include("**/*.go", "go.mod", "go.sum"); exclude("**/*_test.go") })
     outputs.file(coreAar)
     workingDir(coreDir)
@@ -28,19 +28,19 @@ val buildGoCore = tasks.register<Exec>("buildGoCore") {
         "sh", "-c",
         "go build -o '${gobin.absolutePath}/' golang.org/x/mobile/cmd/gomobile golang.org/x/mobile/cmd/gobind && " +
             "gomobile bind -target=android/arm64,android/amd64 -androidapi 26 " +
-            "-javapkg=io.github.sshtunnelvpn -trimpath -ldflags='-s -w -buildid=' " +
+            "-javapkg=not.exist.hopway -trimpath -ldflags='-s -w -buildid=' " +
             "-o '${coreAar.asFile.absolutePath}' .",
     )
 }
 tasks.named("preBuild") { dependsOn(buildGoCore) }
 
 android {
-    namespace = "io.github.sshtunnelvpn"
+    namespace = "not.exist.hopway"
     compileSdk = 37
     ndkVersion = goNdkVersion
 
     defaultConfig {
-        applicationId = "io.github.sshtunnelvpn"
+        applicationId = "not.exist.hopway"
         minSdk = 26
         targetSdk = 36
         // CI 以 -PversionCode=<分鐘級 Unix timestamp> 帶入,每次建置遞增;本地預設 1

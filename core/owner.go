@@ -1,4 +1,4 @@
-package sshvpn
+package core
 
 import (
 	"gvisor.dev/gvisor/pkg/tcpip/stack"

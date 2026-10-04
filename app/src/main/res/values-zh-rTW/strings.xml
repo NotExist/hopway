@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SSH Tunnel VPN</string>
-    <string name="app_name_short">SSH VPN</string>
+    <string name="app_name">Hopway</string>
+    <string name="app_name_short">Hopway</string>
     <string name="channel_tunnel">VPN 狀態</string>
 
     <string name="action_add_profile">新增伺服器</string>

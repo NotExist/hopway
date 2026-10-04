@@ -62,7 +62,7 @@ Default        = Outbound(沒有規則的 App 走這裡)
 - **DNS client 每個出口一份**(含快取),DNS 結果不跨出口共用,避免 CDN 答案錯配。
 - 統計多一層:per-outbound、per-UID 的 bytes/連線數,UI 可以顯示「每個 App 用了多少流量、走哪台」。
 - 系統代發的 DNS(歸屬到系統 UID)在統計中**獨立列為「系統 DNS」**,顯示查詢數、流量與出口,讓預設路徑的負擔看得見。
-- 路由表可**熱更新**:`Sshvpn.UpdateRouting(json)`,改 App 規則不必重連。只有「App 層級直連」名單變動才需要重新 `establish()`。
+- 路由表可**熱更新**:`Core.UpdateRouting(json)`,改 App 規則不必重連。只有「App 層級直連」名單變動才需要重新 `establish()`。
 
 ### Config JSON(v2,向後相容:沒有 `outbounds` 時當成單伺服器)
 

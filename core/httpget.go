@@ -1,4 +1,4 @@
-package sshvpn
+package core
 
 import (
 	"context"
@@ -28,7 +28,7 @@ func httpGet(ctx context.Context, dial func(context.Context, string) (net.Conn, 
 		return "", err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "SSHTunnelVPN")
+	req.Header.Set("User-Agent", "Hopway")
 	resp, err := (&http.Client{Transport: tr}).Do(req)
 	if err != nil {
 		return "", err

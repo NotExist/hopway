@@ -1,7 +1,7 @@
-// Package sshvpn 是 SSH Tunnel VPN 的資料平面:
+// Package core 是 Hopway 的資料平面:
 // TUN fd → gVisor netstack → SSH direct-tcpip channel,整條路徑都在 Go 內完成,
 // 不經過本機 SOCKS loopback,也不經過 JVM。
-package sshvpn
+package core
 
 import (
 	"context"

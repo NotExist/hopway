@@ -20,7 +20,7 @@ jobs:
             echo "VERSION_CODE=$(( NOW / 60 ))"                                   # 分鐘級 Unix timestamp
             echo "BUILD_TIME=$(TZ=Asia/Taipei date -d "@$NOW" '+%Y-%m-%d %H:%M') (UTC+8)"
             echo "BUILD_COMMIT=${GITHUB_SHA::7}"
-            echo "APK_NAME=SSHTunnelVPN-0.1.0-debug-${STAMP}-${GITHUB_SHA::7}"
+            echo "APK_NAME=Hopway-0.1.0-debug-${STAMP}-${GITHUB_SHA::7}"
           } >> "$GITHUB_ENV"
 
       # 固定 debug 金鑰:簽章不變才能覆蓋安裝、保留 App 資料(伺服器設定等)

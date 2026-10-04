@@ -24,7 +24,7 @@ jobs:
             echo "VERSION_CODE=$(( NOW / 60 ))"                                   # 分鐘級 Unix timestamp
             echo "BUILD_TIME=$(TZ=Asia/Taipei date -d "@$NOW" '+%Y-%m-%d %H:%M') (UTC+8)"
             echo "BUILD_COMMIT=${GITHUB_SHA::7}"
-            echo "APK_NAME=SSHTunnelVPN-${GITHUB_REF_NAME}-release-${STAMP}"
+            echo "APK_NAME=Hopway-${GITHUB_REF_NAME}-release-${STAMP}"
           } >> "$GITHUB_ENV"
 
       - name: Release signing key

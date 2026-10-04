@@ -1,8 +1,9 @@
-# HANDOFF — sshtunnelvpn_android
+# HANDOFF — Hopway(原 SSH Tunnel VPN;本機資料夾 sshtunnelvpn_android)
 
 ## 當前狀態(2026-10-03)
 
-- Repo:https://github.com/NotExist/sshtunnelvpn_android(public,branch `main`)
+- Repo:https://github.com/NotExist/hopway(public,branch `main`;舊網址 sshtunnelvpn_android 自動轉址)
+- 名稱/識別:App 名 Hopway;applicationId 與 Kotlin package `not.exist.hopway`;Go module `github.com/NotExist/hopway/core`(package `core` → Java `not.exist.hopway.core.Core`)。
 - **建置一律走 GitHub Actions**(`.github/workflows/build.yml`),本地不裝 Android SDK/NDK、不跑 Gradle。
   - 三個 workflow 各司其職,以觸發條件區分:`test.yml`「Run tests」(push main/PR,文件變更不觸發;Go + Kotlin 單元測試)、`build-debug.yml`「Build debug APK」(只手動:`gh workflow run build-debug.yml`)、`publish-release.yml`「Publish release」(只在 `v*` tag)。共用環境在 `.github/actions/android-setup`。舊 `build.yml` 的執行紀錄已刪除。
   - `versionName` 固定 0.1.0,`versionCode` = 分鐘級 Unix timestamp(`date +%s / 60`,約 2,940 萬;與 workflow 名稱、run number 無關)。APK/artifact 檔名為 `SSHTunnelVPN-0.1.0-debug-<yyyyMMdd-HHmm 台灣時間>-<commit>`;versionCode、建置時間、commit 顯示在「設定 → 關於 → 版本」。三者取自同一時間點。
@@ -46,3 +47,4 @@
 - 2026-10-04:不假設 IPv4 存在——Happy Eyeballs 連伺服器、伺服器 IPv4/IPv6 對稱探測(拒絕不支援協定、過濾 A/AAAA)、DNS 上游自動補另一協定。首頁新增「對外位址」(Cloudflare trace 當下查詢,經 VPN/本機直連 × IPv4/IPv6)、伺服器卡片顯示延遲、數據格精簡為 4 格且可點開看說明;伺服器長按→連線診斷頁(兩份 ipinfo 原始 JSON、SSH 資訊、即時統計)。發現 ipinfo.io 只有 IPv4、v6.ipinfo.io 只有 IPv6。
 - 2026-10-04:新增連線歸屬偵錯日誌(Go `Platform.ConnectionOwner`,Kotlin 以 `getConnectionOwnerUid` 實作,設定開關預設關閉);引擎背景 goroutine 統一由 bgGroup 管理,停止後不再回呼。
 - 2026-10-04:記錄「通用出口」參考設計(user 期望的長期方向,暫不實作)。
+- 2026-10-04:全面改名 Hopway(顯示名、repo、package、module、applicationId `not.exist.hopway`、識別字串、APK 檔名);舊格式備份檔仍可匯入。舊 applicationId 的 debug 版需另行解除安裝。

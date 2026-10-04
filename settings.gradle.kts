@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "SSHTunnelVPN"
+rootProject.name = "Hopway"
 include(":app")

@@ -1,6 +1,6 @@
-# SSH Tunnel VPN (Android)
+# Hopway (Android)
 
-A system-wide VPN that tunnels traffic over a standard SSH server, similar to `ssh -D` but for the whole phone.
+Hopway (formerly SSH Tunnel VPN) is a system-wide VPN that tunnels traffic over a standard SSH server, similar to `ssh -D` but for the whole phone.
 The server needs nothing beyond OpenSSH (`AllowTcpForwarding yes`, the default).
 
 A rewrite of [Anton2319/VPNoverSSH](https://github.com/Anton2319/VPNoverSSH) with a different data-plane architecture.
@@ -11,7 +11,7 @@ A rewrite of [Anton2319/VPNoverSSH](https://github.com/Anton2319/VPNoverSSH) wit
 App traffic → TUN fd ─┬─ gVisor netstack (Go) ─ TCP ──→ SSH direct-tcpip channel ─┐
                       │                       └ UDP:53 → DNS-over-TCP (pipelined) ─┤→ N parallel SSH connections → server
                       │                       └ other UDP → badvpn-udpgw (optional) ┘
-Kotlin/Compose UI ←── gomobile binding (sshvpn.aar) ── stats / state / logs / host-key callbacks
+Kotlin/Compose UI ←── gomobile binding (hopway-core.aar) ── stats / state / logs / host-key callbacks
 ```
 
 | | VPNoverSSH (reference) | This project |
@@ -42,7 +42,7 @@ Builds run on GitHub Actions; each workflow has exactly one purpose, selected by
 Shared setup (Go, JDK 21, Android platform/NDK, Gradle cache) lives in `.github/actions/android-setup`.
 `versionName` is fixed at `0.1.0`; `versionCode` = Unix time in minutes at build time, so every build increases it.
 Build time and commit are baked into `BuildConfig` and shown in Settings → About.
-APK / artifact names: `SSHTunnelVPN-0.1.0-debug-<yyyyMMdd-HHmm, UTC+8>-<sha7>` and `SSHTunnelVPN-<tag>-release-<yyyyMMdd-HHmm>`.
+APK / artifact names: `Hopway-0.1.0-debug-<yyyyMMdd-HHmm, UTC+8>-<sha7>` and `Hopway-<tag>-release-<yyyyMMdd-HHmm>`.
 
 Toolchain used by CI: Go (from `core/go.mod`), JDK 21, Android platform 37, NDK 28.2.13676358.
 gomobile/gobind are pinned via the `tool` block in `core/go.mod`.
@@ -93,7 +93,7 @@ Engine-side safeguards (independent of the mode):
 
 ## Server list export / import
 
-Servers → ⋮ → Export / Import. The file (`sshtunnelvpn-servers-<date>.json`) contains the servers and their trusted host keys.
+Servers → ⋮ → Export / Import. The file (`hopway-servers-<date>.json`; files exported before the rename, format `sshtunnelvpn-servers`, still import) contains the servers and their trusted host keys.
 
 - Without "include passwords and private keys": connection settings only, stored as plain JSON.
 - With it: the whole payload is encrypted with a passphrase (PBKDF2-HMAC-SHA256, 310k iterations → AES-256-GCM); no credential ever appears in plaintext.

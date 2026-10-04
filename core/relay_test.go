@@ -1,4 +1,4 @@
-package sshvpn
+package core
 
 import (
 	"io"

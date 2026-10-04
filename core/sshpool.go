@@ -1,4 +1,4 @@
-package sshvpn
+package core
 
 import (
 	"context"
@@ -317,7 +317,7 @@ func dialSSH(ctx context.Context, cfg *Config, plat Platform, log *logger) (*ssh
 		User:          cfg.User,
 		Auth:          auth,
 		Timeout:       cfg.connectTimeout(),
-		ClientVersion: "SSH-2.0-SSHTunnelVPN",
+		ClientVersion: "SSH-2.0-Hopway",
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			fp := ssh.FingerprintSHA256(key)
 			if plat != nil && !plat.VerifyHostKey(cfg.Host, cfg.Port, key.Type(), fp,

@@ -51,6 +51,8 @@ SSH 連線池(`sshPool`)只是其中一種實作。gVisor、先連遠端再握�
 | App 顯示名稱 | 隨時可改,無副作用 |
 | GitHub repo 名稱 | 可改;GitHub 會自動轉址舊網址 |
 | Kotlin package / Go module 路徑 | 純內部重構,不影響使用者 |
-| **applicationId**(`io.github.sshtunnelvpn`) | **改了就是另一個 App**:無法覆蓋安裝,設定不會沿用(資料以 Keystore 加密,也無法搬移)。建議發布正式版之前就決定,或永久保留現有 ID、只改顯示名稱 |
+| **applicationId**(原 `io.github.sshtunnelvpn`) | **改了就是另一個 App**:無法覆蓋安裝,設定不會沿用(資料以 Keystore 加密,也無法搬移)。建議發布正式版之前就決定,或永久保留現有 ID、只改顯示名稱 |
 
 如果要改名,最好在發布第一個正式版之前定案。
+
+**結果(2026-10-04)**:已在發布前全面改名為 Hopway,applicationId 改為 `not.exist.hopway`。
